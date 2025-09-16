@@ -30,7 +30,7 @@ jobs:
         run: |
           npm ci
           sudo apt-get update
-          sudo apt-get install -y libasound2t64 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 libgtk-3-0 libgdk-pixbuf2.0-0 libcairo-gobject2 libpango-1.0-0 libatk1.0-0 libcairo2
+          sudo apt-get install -y libasound2t64 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 libgtk-3-0 libgdk-pixbuf2.0-0 libcairo-gobject2 libpango-1.0-0 libatk1.0-0
           npx playwright install chromium
 
       - name: Create ping script
@@ -77,8 +77,16 @@ jobs:
               for (const btn of downloadButtons) {
                 const text = (await btn.innerText().catch(() => '')).toLowerCase();
                 if (/download|baixar|télécharger|descargar|scarica/.test(text)) {
-                  await btn.click().catch(() => {});
-                  await page.waitForTimeout(5000);
+                  try {
+                    await btn.click();
+                    // Wait only if page is still open
+                    if (!page.isClosed()) {
+                      await page.waitForTimeout(5000);
+                    }
+                  } catch (e) {
+                    console.warn(`Error clicking button: ${e.message}`);
+                    if (page.isClosed()) break;
+                  }
                 }
               }
 
@@ -93,7 +101,7 @@ jobs:
                   try {
                     const res = await fetch(dlink, {
                       method: 'GET',
-                      headers: { Range: 'bytes=0-0' }
+                      headers: { Range: 'bytes=0-524287' }
                     });
                     if (res.status !== 200) {
                       throw new Error(`Ping failed: ${res.status} ${res.statusText} for ${dlink}`);
@@ -106,7 +114,10 @@ jobs:
                 }
               }
 
-              await page.close();
+              // Only close page if still open
+              if (!page.isClosed()) {
+                await page.close();
+              }
             }
 
             console.log(`Total links refreshed: ${totalLinks}`);
