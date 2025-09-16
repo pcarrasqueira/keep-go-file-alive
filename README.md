@@ -1,7 +1,6 @@
 # Keep GoFile Alive 
 
 [![Keep Gofile Alive](https://github.com/pcarrasqueira/keep-go-file-alive/actions/workflows/keep-file-alive.yml/badge.svg?branch=main)](https://github.com/pcarrasqueira/keep-go-file-alive/actions/workflows/keep-file-alive.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This repository contains a GitHub Action that periodically pings GoFile download links to keep them alive and prevent expiration. The tool uses Playwright to automate browser interactions and intelligently detect download links.
 
