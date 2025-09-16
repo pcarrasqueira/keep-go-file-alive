@@ -3,18 +3,40 @@ name: Keep Gofile Alive
 on:
   schedule:
     - cron: "00 7 */5 * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      verbose:
+        description: 'Enable verbose logging'
+        required: false
+        default: 'false'
+        type: boolean
+      max_retries:
+        description: 'Maximum retries per operation'
+        required: false
+        default: '3'
+        type: string
+
+env:
+  FORCE_COLOR: 1
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    strategy:
+      matrix:
+        node-version: [20]
+        
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
         id: setup-node
         with:
-          node-version: 20
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
       - name: Cache Playwright browsers
@@ -26,106 +48,35 @@ jobs:
             playwright-${{ runner.os }}-${{ steps.setup-node.outputs.node-version }}-
             playwright-${{ runner.os }}-
 
-      - name: Install Playwright + Chromium
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
         run: |
-          npm ci
           sudo apt-get update
           sudo apt-get install -y libasound2t64 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 libgtk-3-0 libgdk-pixbuf2.0-0 libcairo-gobject2 libpango-1.0-0 libatk1.0-0
           npx playwright install chromium
 
-      - name: Create ping script
-        run: |
-          cat > ping-gofile.js <<'EOF'
-          const { chromium } = require('playwright');
+      - name: Run tests
+        run: npm test
+        continue-on-error: true
 
-          (async () => {
-            const urlsEnv = process.env.GOFILE_URLS || '';
-            const urls = urlsEnv.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-            if (urls.length === 0) {
-              console.error('No URLs found in GOFILE_URLS'); process.exit(1);
-            }
-
-            const browser = await chromium.launch();
-            const context = await browser.newContext({
-              userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
-            });
-
-            let totalLinks = 0;
-
-            for (const url of urls) {
-              const page = await context.newPage();
-
-              await page.route('**/*', route => {
-                const t = route.request().resourceType();
-                if (['image','font','stylesheet','media'].includes(t)) return route.abort();
-                route.continue();
-              });
-
-              const seen = new Set();
-              page.on('response', resp => {
-                try {
-                  const u = resp.url();
-                  const h = new URL(u).hostname;
-                  if (/\/download\//.test(u) || /srv-store\d+\.gofile\.io/.test(h)) seen.add(u);
-                } catch {}
-              });
-
-              console.log(`Opening ${url}`);
-              await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
-
-              const downloadButtons = await page.$$('a, button');
-              for (const btn of downloadButtons) {
-                const text = (await btn.innerText().catch(() => '')).toLowerCase();
-                if (/download|baixar|télécharger|descargar|scarica/.test(text)) {
-                  try {
-                    await btn.click();
-                    // Wait only if page is still open
-                    if (!page.isClosed()) {
-                      await page.waitForTimeout(5000);
-                    }
-                  } catch (e) {
-                    console.warn(`Error clicking button: ${e.message}`);
-                    if (page.isClosed()) break;
-                  }
-                }
-              }
-
-              let anchors = await page.$$eval('a[href*="/download/"]', els => els.map(e => e.href));
-              const directLinks = [...new Set([...anchors, ...Array.from(seen)])];
-              totalLinks += directLinks.length;
-
-              if (directLinks.length === 0) {
-                console.warn(`No download links detected for ${url}`);
-              } else {
-                for (const dlink of directLinks) {
-                  try {
-                    const res = await fetch(dlink, {
-                      method: 'GET',
-                      headers: { Range: 'bytes=0-524287' }
-                    });
-                    if (res.status !== 200) {
-                      throw new Error(`Ping failed: ${res.status} ${res.statusText} for ${dlink}`);
-                    }
-                    console.log(`Ping ${dlink} -> ${res.status} ${res.statusText}`);
-                  } catch (e) {
-                    console.warn(`Failed to ping ${dlink}: ${e.message}`);
-                    throw e;
-                  }
-                }
-              }
-
-              // Only close page if still open
-              if (!page.isClosed()) {
-                await page.close();
-              }
-            }
-
-            console.log(`Total links refreshed: ${totalLinks}`);
-            await browser.close();
-          })().catch(e => { console.error(e); process.exit(1); });
-          EOF
-
-      - name: Run ping script
-        run: node ping-gofile.js
+      - name: Run GoFile Keep Alive
+        run: npm start
         env:
           GOFILE_URLS: ${{ secrets.GOFILE_URLS }}
+          VERBOSE: ${{ github.event.inputs.verbose || 'false' }}
+          MAX_RETRIES: ${{ github.event.inputs.max_retries || '3' }}
+          HEADLESS: 'true'
+          PAGE_TIMEOUT: '60000'
+          WAIT_TIME: '5000'
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-logs-${{ github.run_id }}
+          path: |
+            /tmp/*.log
+            /home/runner/.npm/_logs/
+          retention-days: 7

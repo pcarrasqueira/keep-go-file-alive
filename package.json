@@ -1,7 +1,28 @@
 {
   "name": "keep-gofile-alive",
   "version": "1.0.0",
+  "description": "A tool to keep GoFile download links alive by periodically pinging them",
+  "main": "src/ping-gofile.js",
+  "scripts": {
+    "start": "node src/ping-gofile.js",
+    "test": "node test/test-runner.js",
+    "validate": "node validate-setup.js",
+    "example": "node example.js",
+    "postinstall": "npx playwright install chromium"
+  },
   "dependencies": {
-    "playwright": "1.42.0"
-  }
+    "playwright": "^1.48.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "gofile",
+    "download",
+    "keep-alive",
+    "playwright",
+    "github-actions"
+  ],
+  "author": "",
+  "license": "MIT"
 }
