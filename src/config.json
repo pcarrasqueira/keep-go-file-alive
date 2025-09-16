@@ -1,0 +1,48 @@
+{
+  "defaultOptions": {
+    "maxRetries": 3,
+    "timeout": 60000,
+    "waitTime": 5000,
+    "headless": true,
+    "verbose": false,
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+  },
+  "selectors": {
+    "downloadButtons": [
+      "a[href*=\"/download/\"]",
+      "button:has-text(\"download\")",
+      "button:has-text(\"baixar\")",
+      "button:has-text(\"télécharger\")",
+      "button:has-text(\"descargar\")",
+      "button:has-text(\"scarica\")",
+      "[data-cy=\"download\"]",
+      ".download-button",
+      "#download",
+      ".btn-download"
+    ],
+    "downloadLinks": [
+      "a[href*=\"/download/\"]"
+    ]
+  },
+  "patterns": {
+    "downloadUrl": "/\\/download\\//",
+    "gofileServer": "/srv-store\\d+\\.gofile\\.io/",
+    "downloadText": "/download|baixar|télécharger|descargar|scarica/i"
+  },
+  "browserArgs": [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--disable-default-apps",
+    "--disable-extensions"
+  ],
+  "blockedResourceTypes": [
+    "image",
+    "font",
+    "stylesheet",
+    "media"
+  ]
+}
