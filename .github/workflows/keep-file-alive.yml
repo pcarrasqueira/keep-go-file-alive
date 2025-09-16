@@ -78,7 +78,7 @@ jobs:
                 const text = (await btn.innerText().catch(() => '')).toLowerCase();
                 if (/download|baixar|télécharger|descargar|scarica/.test(text)) {
                   await btn.click().catch(() => {});
-                  await page.waitForTimeout(1500);
+                  await page.waitForTimeout(5000);
                 }
               }
 
