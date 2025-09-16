@@ -169,18 +169,3 @@ npm start
 1. Enable verbose logging by setting `VERBOSE=true` 
 2. Check the workflow logs in the Actions tab
 3. Look for specific error messages in the summary section
-4. Open an issue with the verbose logs if problems persist
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
-
-## ⭐ Acknowledgments
-
-- [Playwright](https://playwright.dev/) for browser automation
-- [GitHub Actions](https://github.com/features/actions) for CI/CD platform
-- GoFile for providing the file hosting service
