@@ -2,7 +2,7 @@ name: Keep Gofile Alive
 
 on:
   schedule:
-    - cron: "00 7 */5 * *"
+    - cron: "00 7 */3 * *"
   workflow_dispatch:
     inputs:
       verbose:
