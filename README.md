@@ -142,7 +142,7 @@ npm start
 npm install --ignore-scripts
 
 # For local browser testing, install Playwright browsers manually
-# (Only needed if not using Docker)
+# (Only needed if not using Docker or system Chromium)
 npx playwright install chromium
 
 # Run tests
@@ -150,6 +150,9 @@ npm test
 
 # Validate setup
 npm run validate
+
+# Validate optimizations
+npm run validate-optimizations
 ```
 
 ## 🛠️ How It Works
