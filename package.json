@@ -7,8 +7,7 @@
     "start": "node src/ping-gofile.js",
     "test": "node test/test-runner.js",
     "validate": "node validate-setup.js",
-    "example": "node example.js",
-    "postinstall": "npx playwright install chromium"
+    "example": "node example.js"
   },
   "dependencies": {
     "playwright": "^1.48.0"

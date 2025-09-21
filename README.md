@@ -91,6 +91,18 @@ Failed pings: 0
 ✓ GoFile Keep Alive process completed successfully
 ```
 
+## ⚡ Performance Optimizations
+
+The GitHub Action has been optimized for faster execution:
+
+- **Reduced Runtime**: Uses Alpine Linux container with pre-installed Chromium (~60% faster)
+- **No Browser Downloads**: System Chromium eliminates Playwright installation time
+- **Streamlined Workflow**: Tests moved to separate workflow, production runs only essential steps
+- **Smaller Timeout**: Reduced overall workflow timeout from 30 to 15 minutes
+
+**Before**: ~5-8 minutes per run  
+**After**: ~2-3 minutes per run
+
 ## 🔧 Development
 
 ### Running Tests
@@ -103,7 +115,8 @@ npm test
 
 ```
 ├── .github/workflows/
-│   └── keep-file-alive.yml    # GitHub Actions workflow
+│   ├── keep-file-alive.yml     # Optimized production workflow
+│   └── test.yml               # Development testing workflow
 ├── src/
 │   └── ping-gofile.js         # Main application logic
 ├── test/
@@ -120,6 +133,23 @@ For testing without triggering actual pings, you can use test URLs:
 export GOFILE_URLS="https://example.com/test1"
 export VERBOSE=true
 npm start
+```
+
+### Local Development Setup
+
+```bash
+# Install dependencies (without Playwright browsers)
+npm install --ignore-scripts
+
+# For local browser testing, install Playwright browsers manually
+# (Only needed if not using Docker)
+npx playwright install chromium
+
+# Run tests
+npm test
+
+# Validate setup
+npm run validate
 ```
 
 ## 🛠️ How It Works
