@@ -22,47 +22,23 @@ env:
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    container:
+      image: node:20-alpine
     
-    strategy:
-      matrix:
-        node-version: [20]
-        
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        id: setup-node
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.setup-node.outputs.node-version }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            playwright-${{ runner.os }}-${{ steps.setup-node.outputs.node-version }}-
-            playwright-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright browser
+      - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libasound2t64 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 libgtk-3-0 libgdk-pixbuf2.0-0 libcairo-gobject2 libpango-1.0-0 libatk1.0-0
-          npx playwright install chromium
+          apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
 
-      - name: Run tests
-        run: npm test
-        continue-on-error: true
+      - name: Install Node.js dependencies
+        run: npm ci --only=production --ignore-scripts
 
       - name: Run GoFile Keep Alive
-        run: npm start
+        run: node src/ping-gofile.js
         env:
           GOFILE_URLS: ${{ secrets.GOFILE_URLS }}
           VERBOSE: ${{ github.event.inputs.verbose || 'false' }}
@@ -70,6 +46,8 @@ jobs:
           HEADLESS: 'true'
           PAGE_TIMEOUT: '60000'
           WAIT_TIME: '5000'
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: '/usr/bin/chromium-browser'
 
       - name: Upload logs on failure
         if: failure()
@@ -78,5 +56,4 @@ jobs:
           name: failure-logs-${{ github.run_id }}
           path: |
             /tmp/*.log
-            /home/runner/.npm/_logs/
-          retention-days: 7
+          retention-days: 3

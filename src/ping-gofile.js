@@ -87,7 +87,7 @@ class GoFileKeepAlive {
   async setupBrowser() {
     this.log('Launching browser...');
     
-    const browser = await chromium.launch({
+    const launchOptions = {
       headless: this.options.headless,
       args: [
         '--no-sandbox',
@@ -99,7 +99,14 @@ class GoFileKeepAlive {
         '--disable-default-apps',
         '--disable-extensions'
       ]
-    });
+    };
+
+    // Use system chromium if available (for Docker/Alpine)
+    if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+      launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+    }
+    
+    const browser = await chromium.launch(launchOptions);
 
     const context = await browser.newContext({
       userAgent: this.options.userAgent,
