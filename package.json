@@ -7,6 +7,7 @@
     "start": "node src/ping-gofile.js",
     "test": "node test/test-runner.js",
     "validate": "node validate-setup.js",
+    "validate-optimizations": "node validate-optimizations.js",
     "example": "node example.js"
   },
   "dependencies": {
