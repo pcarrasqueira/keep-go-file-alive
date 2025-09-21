@@ -9,14 +9,17 @@ class GoFileKeepAlive {
       headless: process.env.HEADLESS !== 'false',
       userAgent: process.env.USER_AGENT || 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
       verbose: process.env.VERBOSE === 'true',
+      downloadBytes: parseInt(process.env.DOWNLOAD_BYTES, 10) || (1024 * 1024), // 1 MiB default
       ...options
     };
     
     this.stats = {
       totalUrls: 0,
       totalLinks: 0,
-      successfulPings: 0,
+      successfulPings: 0, // partial downloads successes
       failedPings: 0,
+      downloadedBytes: 0,
+      bytesPerLink: {}, // { [url]: bytesDownloaded }
       errors: []
     };
   }
@@ -190,34 +193,61 @@ class GoFileKeepAlive {
     return Array.from(downloadLinks);
   }
 
-  async pingDownloadLink(url) {
+  // Perform partial download (Range) of N bytes per link and discard data.
+  async downloadPartial(url, bytesToDownload) {
     try {
-      this.log(`Pinging: ${url}`, 'debug');
-      
+      this.log(`Downloading ${bytesToDownload} bytes from: ${url}`, 'debug');
+
       const response = await fetch(url, {
-        method: 'HEAD',
+        method: 'GET',
         headers: {
           'User-Agent': this.options.userAgent,
           'Accept': '*/*',
           'Accept-Language': 'en-US,en;q=0.9',
-          'Accept-Encoding': 'gzip, deflate',
+          'Accept-Encoding': 'identity', // avoid compression for predictable Range
           'Connection': 'keep-alive',
+          'Range': `bytes=0-${bytesToDownload - 1}`,
           'Upgrade-Insecure-Requests': '1'
         },
+        redirect: 'follow',
         timeout: 30000
       });
 
-      if (response.status === 200 || response.status === 206) {
-        this.stats.successfulPings++;
-        this.log(`✓ Ping successful: ${url} -> ${response.status} ${response.statusText}`);
-        return true;
-      } else {
+      // Accept 206 (Partial Content) or 200 (server ignored Range)
+      if (![200, 206].includes(response.status)) {
         throw new Error(`HTTP ${response.status} ${response.statusText}`);
       }
+
+      if (!response.body) {
+        throw new Error('No response body');
+      }
+
+      // Read up to bytesToDownload then cancel
+      const reader = response.body.getReader();
+      let received = 0;
+
+      while (received < bytesToDownload) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        received += value.length;
+        if (received >= bytesToDownload) {
+          await reader.cancel();
+          break;
+        }
+      }
+
+      this.stats.successfulPings++;
+      const counted = Math.min(received, bytesToDownload);
+      this.stats.downloadedBytes += counted;
+      this.stats.bytesPerLink[url] = (this.stats.bytesPerLink[url] || 0) + counted;
+
+      const downloadedMiB = (counted / (1024 * 1024)).toFixed(2);
+      this.log(`✓ Downloaded ${downloadedMiB} MiB from ${url}`);
+      return true;
     } catch (error) {
       this.stats.failedPings++;
       this.stats.errors.push({ url, error: error.message });
-      this.log(`✗ Ping failed: ${url} -> ${error.message}`, 'warn');
+      this.log(`✗ Partial download failed: ${url} -> ${error.message}`, 'warn');
       return false;
     }
   }
@@ -238,16 +268,16 @@ class GoFileKeepAlive {
       this.log(`Found ${downloadLinks.length} download links for ${url}`);
       this.stats.totalLinks += downloadLinks.length;
 
-      // Ping all download links with retry logic
+      // For each link, download 1 MiB (or DOWNLOAD_BYTES) with retry
       let successCount = 0;
       for (const downloadLink of downloadLinks) {
         const success = await this.retryOperation(async () => {
-          const result = await this.pingDownloadLink(downloadLink);
+          const result = await this.downloadPartial(downloadLink, this.options.downloadBytes);
           if (!result) {
-            throw new Error('Ping failed');
+            throw new Error('Partial download failed');
           }
           return result;
-        }, 2); // Fewer retries for individual pings
+        }, 2); // fewer retries per link
 
         if (success) {
           successCount++;
@@ -284,7 +314,7 @@ class GoFileKeepAlive {
         }
       }
 
-      // Print summary
+      // Summary
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
       this.log('='.repeat(60));
       this.log('SUMMARY');
@@ -292,8 +322,15 @@ class GoFileKeepAlive {
       this.log(`Execution time: ${duration}s`);
       this.log(`URLs processed: ${this.stats.totalUrls}`);
       this.log(`Download links found: ${this.stats.totalLinks}`);
-      this.log(`Successful pings: ${this.stats.successfulPings}`);
-      this.log(`Failed pings: ${this.stats.failedPings}`);
+      this.log(`Successful partial downloads: ${this.stats.successfulPings}`);
+      this.log(`Failed partial downloads: ${this.stats.failedPings}`);
+      this.log(`Bytes downloaded (total): ${(this.stats.downloadedBytes / (1024 * 1024)).toFixed(2)} MiB`);
+      if (Object.keys(this.stats.bytesPerLink).length > 0 && this.options.verbose) {
+        this.log('Downloaded per link:');
+        for (const [link, bytes] of Object.entries(this.stats.bytesPerLink)) {
+          this.log(`  - ${(bytes / (1024 * 1024)).toFixed(2)} MiB — ${link}`);
+        }
+      }
       
       if (this.stats.errors.length > 0) {
         this.log(`Errors encountered: ${this.stats.errors.length}`);
@@ -305,7 +342,7 @@ class GoFileKeepAlive {
       }
 
       if (this.stats.successfulPings === 0 && this.stats.totalLinks > 0) {
-        throw new Error('No successful pings were made despite finding download links');
+        throw new Error('No successful partial downloads were made despite finding download links');
       }
 
       this.log('✓ GoFile Keep Alive process completed successfully');
@@ -328,7 +365,7 @@ if (require.main === module) {
   const keepAlive = new GoFileKeepAlive();
   
   keepAlive.run()
-    .then(stats => {
+    .then(() => {
       console.log('Process completed successfully');
       process.exit(0);
     })
