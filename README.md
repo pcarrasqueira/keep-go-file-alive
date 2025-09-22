@@ -2,7 +2,7 @@
 
 [![Keep Gofile Alive](https://github.com/pcarrasqueira/keep-go-file-alive/actions/workflows/keep-file-alive.yml/badge.svg?branch=main)](https://github.com/pcarrasqueira/keep-go-file-alive/actions/workflows/keep-file-alive.yml)
 
-This repository contains a GitHub Action that periodically pings GoFile download links to keep them alive and prevent expiration. The tool uses Playwright to automate browser interactions and intelligently detect download links.
+This repository contains a GitHub Action that periodically downloads sample data from GoFile download links to keep them alive and prevent expiration. The tool uses Playwright to automate browser interactions and intelligently detect download links.
 
 ## ✨ Features
 
@@ -105,22 +105,13 @@ The GitHub Action has been optimized for faster execution:
 
 ## 🔧 Development
 
-### Running Tests
-
-```bash
-npm test
-```
-
 ### Project Structure
 
 ```
 ├── .github/workflows/
-│   ├── keep-file-alive.yml     # Optimized production workflow
-│   └── test.yml               # Development testing workflow
+│   └── keep-file-alive.yml     # Optimized production workflow
 ├── src/
 │   └── ping-gofile.js         # Main application logic
-├── test/
-│   └── test-runner.js         # Test suite
 ├── package.json               # Dependencies and scripts
 └── README.md                  # This file
 ```
@@ -142,17 +133,11 @@ npm start
 npm install --ignore-scripts
 
 # For local browser testing, install Playwright browsers manually
-# (Only needed if not using Docker or system Chromium)
+# (Only needed if not using system Chromium)
 npx playwright install chromium
-
-# Run tests
-npm test
 
 # Validate setup
 npm run validate
-
-# Validate optimizations
-npm run validate-optimizations
 ```
 
 ## 🛠️ How It Works
@@ -164,14 +149,14 @@ npm run validate-optimizations
    - Monitors network traffic for download URLs
    - Searches for download buttons and links on the page
    - Clicks download buttons to reveal direct download links
-5. **Link Pinging**: Sends HEAD requests to download links to keep them alive
+5. **Sample Download**: Downloads the first 1MB of each detected download link to keep them active
 6. **Reporting**: Provides detailed statistics and logs
 
 ## 🔒 Security & Privacy
 
 - Uses official Playwright browser automation (no third-party tools)
-- Only sends HEAD requests to detected download links
-- No data is stored or transmitted outside of GitHub Actions
+- Downloads only 1MB samples from detected download links to verify accessibility
+- Downloaded data is immediately discarded, nothing is stored permanently
 - All communication uses standard HTTPS
 
 ## 🚨 Troubleshooting

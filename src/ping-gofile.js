@@ -15,8 +15,8 @@ class GoFileKeepAlive {
     this.stats = {
       totalUrls: 0,
       totalLinks: 0,
-      successfulPings: 0,
-      failedPings: 0,
+      successfulDownloads: 0,
+      failedDownloads: 0,
       errors: []
     };
   }
@@ -197,34 +197,52 @@ class GoFileKeepAlive {
     return Array.from(downloadLinks);
   }
 
-  async pingDownloadLink(url) {
+  async downloadSampleFromLink(url) {
     try {
-      this.log(`Pinging: ${url}`, 'debug');
+      this.log(`Downloading 1MB sample from: ${url}`, 'debug');
       
       const response = await fetch(url, {
-        method: 'HEAD',
+        method: 'GET',
         headers: {
           'User-Agent': this.options.userAgent,
           'Accept': '*/*',
           'Accept-Language': 'en-US,en;q=0.9',
           'Accept-Encoding': 'gzip, deflate',
           'Connection': 'keep-alive',
-          'Upgrade-Insecure-Requests': '1'
+          'Upgrade-Insecure-Requests': '1',
+          'Range': 'bytes=0-1048575' // Request first 1MB (1,048,576 bytes - 1)
         },
-        timeout: 30000
+        timeout: 60000 // Increased timeout for actual download
       });
 
       if (response.status === 200 || response.status === 206) {
-        this.stats.successfulPings++;
-        this.log(`✓ Ping successful: ${url} -> ${response.status} ${response.statusText}`);
+        // Read the response body to actually download the data
+        const reader = response.body?.getReader();
+        let downloadedBytes = 0;
+        const maxBytes = 1048576; // 1MB
+        
+        if (reader) {
+          try {
+            while (downloadedBytes < maxBytes) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              downloadedBytes += value?.length || 0;
+            }
+          } finally {
+            reader.releaseLock();
+          }
+        }
+        
+        this.stats.successfulDownloads++;
+        this.log(`✓ Downloaded ${downloadedBytes} bytes from: ${url} -> ${response.status} ${response.statusText}`);
         return true;
       } else {
         throw new Error(`HTTP ${response.status} ${response.statusText}`);
       }
     } catch (error) {
-      this.stats.failedPings++;
+      this.stats.failedDownloads++;
       this.stats.errors.push({ url, error: error.message });
-      this.log(`✗ Ping failed: ${url} -> ${error.message}`, 'warn');
+      this.log(`✗ Download failed: ${url} -> ${error.message}`, 'warn');
       return false;
     }
   }
@@ -245,16 +263,16 @@ class GoFileKeepAlive {
       this.log(`Found ${downloadLinks.length} download links for ${url}`);
       this.stats.totalLinks += downloadLinks.length;
 
-      // Ping all download links with retry logic
+      // Download 1MB samples from all download links with retry logic
       let successCount = 0;
       for (const downloadLink of downloadLinks) {
         const success = await this.retryOperation(async () => {
-          const result = await this.pingDownloadLink(downloadLink);
+          const result = await this.downloadSampleFromLink(downloadLink);
           if (!result) {
-            throw new Error('Ping failed');
+            throw new Error('Download failed');
           }
           return result;
-        }, 2); // Fewer retries for individual pings
+        }, 2); // Fewer retries for individual downloads
 
         if (success) {
           successCount++;
@@ -271,7 +289,7 @@ class GoFileKeepAlive {
 
   async run() {
     const startTime = Date.now();
-    this.log('Starting GoFile Keep Alive process...');
+    this.log('Starting GoFile Keep Alive process (downloading 1MB samples)...');
 
     let browser, context;
     
@@ -279,12 +297,12 @@ class GoFileKeepAlive {
       const urls = this.parseUrls();
       ({ browser, context } = await this.setupBrowser());
 
-      let totalSuccessfulPings = 0;
+      let totalSuccessfulDownloads = 0;
 
       for (const url of urls) {
         try {
-          const successfulPings = await this.processUrl(context, url);
-          totalSuccessfulPings += successfulPings;
+          const successfulDownloads = await this.processUrl(context, url);
+          totalSuccessfulDownloads += successfulDownloads;
         } catch (error) {
           this.log(`Failed to process URL ${url}: ${error.message}`, 'error');
           this.stats.errors.push({ url, error: error.message });
@@ -299,8 +317,8 @@ class GoFileKeepAlive {
       this.log(`Execution time: ${duration}s`);
       this.log(`URLs processed: ${this.stats.totalUrls}`);
       this.log(`Download links found: ${this.stats.totalLinks}`);
-      this.log(`Successful pings: ${this.stats.successfulPings}`);
-      this.log(`Failed pings: ${this.stats.failedPings}`);
+      this.log(`Successful downloads: ${this.stats.successfulDownloads}`);
+      this.log(`Failed downloads: ${this.stats.failedDownloads}`);
       
       if (this.stats.errors.length > 0) {
         this.log(`Errors encountered: ${this.stats.errors.length}`);
@@ -311,8 +329,8 @@ class GoFileKeepAlive {
         }
       }
 
-      if (this.stats.successfulPings === 0 && this.stats.totalLinks > 0) {
-        throw new Error('No successful pings were made despite finding download links');
+      if (this.stats.successfulDownloads === 0 && this.stats.totalLinks > 0) {
+        throw new Error('No successful downloads were made despite finding download links');
       }
 
       this.log('✓ GoFile Keep Alive process completed successfully');
