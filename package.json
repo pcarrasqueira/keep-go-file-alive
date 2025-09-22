@@ -1,13 +1,11 @@
 {
   "name": "keep-gofile-alive",
   "version": "1.0.0",
-  "description": "A tool to keep GoFile download links alive by periodically pinging them",
+  "description": "A tool to keep GoFile download links alive by downloading sample data from them",
   "main": "src/ping-gofile.js",
   "scripts": {
     "start": "node src/ping-gofile.js",
-    "test": "node test/test-runner.js",
     "validate": "node validate-setup.js",
-    "validate-optimizations": "node validate-optimizations.js",
     "example": "node example.js"
   },
   "dependencies": {

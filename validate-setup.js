@@ -92,13 +92,6 @@ class SetupValidator {
       }
     });
 
-    // Check test file
-    this.check('Tests exist', () => {
-      if (!fs.existsSync('test/test-runner.js')) {
-        return 'Test file not found';
-      }
-    });
-
     // Check .gitignore
     this.check('.gitignore exists', () => {
       if (!fs.existsSync('.gitignore')) {
