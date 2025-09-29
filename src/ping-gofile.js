@@ -1,4 +1,5 @@
 const { chromium } = require('playwright');
+const HeadersManager = require('./headers');
 
 class GoFileKeepAlive {
   constructor(options = {}) {
@@ -7,11 +8,12 @@ class GoFileKeepAlive {
       timeout: parseInt(process.env.PAGE_TIMEOUT) || 60000,
       waitTime: parseInt(process.env.WAIT_TIME) || 5000,
       headless: process.env.HEADLESS !== 'false',
-      userAgent: process.env.USER_AGENT || 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+      userAgent: process.env.USER_AGENT || null, // Will be set by HeadersManager
       verbose: process.env.VERBOSE === 'true',
       ...options
     };
     
+    this.headersManager = new HeadersManager();
     this.stats = {
       totalUrls: 0,
       totalLinks: 0,
@@ -85,7 +87,12 @@ class GoFileKeepAlive {
   }
 
   async setupBrowser() {
-    this.log('Launching browser...');
+    this.log('Launching browser with stealth configuration...');
+    
+    // Reset headers for new session
+    this.headersManager.resetSession();
+    const browserHeaders = this.headersManager.getRandomBrowserHeaders();
+    const viewport = this.headersManager.getRandomViewport();
     
     const launchOptions = {
       headless: this.options.headless,
@@ -97,7 +104,18 @@ class GoFileKeepAlive {
         '--no-first-run',
         '--no-default-browser-check',
         '--disable-default-apps',
-        '--disable-extensions'
+        '--disable-extensions',
+        // Additional stealth arguments
+        '--disable-blink-features=AutomationControlled',
+        '--disable-features=VizDisplayCompositor',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-features=TranslateUI',
+        '--disable-ipc-flooding-protection',
+        '--no-pings',
+        '--disable-web-security',
+        '--disable-features=site-per-process'
       ]
     };
 
@@ -109,19 +127,68 @@ class GoFileKeepAlive {
     const browser = await chromium.launch(launchOptions);
 
     const context = await browser.newContext({
-      userAgent: this.options.userAgent,
-      viewport: { width: 1920, height: 1080 },
-      ignoreHTTPSErrors: true
+      userAgent: browserHeaders['User-Agent'],
+      viewport: viewport,
+      ignoreHTTPSErrors: true,
+      extraHTTPHeaders: browserHeaders,
+      locale: 'en-US',
+      timezoneId: 'America/New_York', // Common timezone
+      permissions: ['geolocation', 'notifications'], // Common permissions
     });
 
-    // Block unnecessary resources to improve performance
+    // Add stealth script to hide automation
+    await context.addInitScript(() => {
+      // Hide webdriver property
+      Object.defineProperty(navigator, 'webdriver', {
+        get: () => undefined,
+      });
+
+      // Mock plugins
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => [1, 2, 3, 4, 5],
+      });
+
+      // Mock languages
+      Object.defineProperty(navigator, 'languages', {
+        get: () => ['en-US', 'en'],
+      });
+
+      // Override chrome property
+      window.chrome = {
+        runtime: {},
+      };
+
+      // Hide automation indicators
+      const originalQuery = window.document.querySelector;
+      window.document.querySelector = function(selector) {
+        if (selector === 'img[src*="data:image/png;base64,"]') {
+          return null;
+        }
+        return originalQuery.call(this, selector);
+      };
+    });
+
+    // Block unnecessary resources but allow more than before for realistic behavior
     await context.route('**/*', route => {
       const resourceType = route.request().resourceType();
-      if (['image', 'font', 'stylesheet', 'media'].includes(resourceType)) {
+      const url = route.request().url();
+      
+      // Block some images and fonts but not all to appear more realistic
+      if (resourceType === 'image' && Math.random() > 0.3) { // Block 70% of images
         return route.abort();
       }
+      if (resourceType === 'font' && Math.random() > 0.5) { // Block 50% of fonts
+        return route.abort();
+      }
+      if (resourceType === 'media') {
+        return route.abort();
+      }
+      
       route.continue();
     });
+
+    this.log(`Browser configured with User-Agent: ${browserHeaders['User-Agent']}`, 'debug');
+    this.log(`Viewport: ${viewport.width}x${viewport.height}`, 'debug');
 
     return { browser, context };
   }
@@ -145,10 +212,17 @@ class GoFileKeepAlive {
     });
 
     this.log(`Navigating to ${url}`);
+    
+    // Add random delay before navigation
+    await this.headersManager.addRandomDelay();
+    
     await page.goto(url, { 
       waitUntil: 'networkidle', 
       timeout: this.options.timeout 
     });
+
+    // Simulate human-like behavior
+    await this.simulateHumanBehavior(page);
 
     // Try to find and click download buttons
     const downloadSelectors = [
@@ -169,8 +243,15 @@ class GoFileKeepAlive {
         const elements = await page.$$(selector);
         for (const element of elements) {
           try {
+            // Add random delay and simulate mouse movement
+            await this.headersManager.addRandomDelay();
+            
             const text = (await element.innerText()).toLowerCase();
             if (/download|baixar|télécharger|descargar|scarica/.test(text)) {
+              // Hover before clicking for more realistic behavior
+              await element.hover();
+              await this.sleep(Math.random() * 500 + 200); // 200-700ms delay
+              
               await element.click({ timeout: 5000 });
               await this.sleep(this.options.waitTime);
               this.log(`Clicked download button with text: ${text}`, 'debug');
@@ -197,21 +278,59 @@ class GoFileKeepAlive {
     return Array.from(downloadLinks);
   }
 
+  /**
+   * Simulate human-like behavior on the page
+   */
+  async simulateHumanBehavior(page) {
+    try {
+      // Random scroll behavior
+      const scrolls = Math.floor(Math.random() * 3) + 1; // 1-3 scrolls
+      for (let i = 0; i < scrolls; i++) {
+        const scrollY = Math.random() * 500 + 100; // 100-600px scroll
+        await page.evaluate((y) => window.scrollBy(0, y), scrollY);
+        await this.sleep(Math.random() * 1000 + 500); // 500-1500ms delay
+      }
+
+      // Random mouse movements
+      const movements = Math.floor(Math.random() * 3) + 1; // 1-3 movements
+      for (let i = 0; i < movements; i++) {
+        const x = Math.random() * 800 + 100; // Random x position
+        const y = Math.random() * 600 + 100; // Random y position
+        await page.mouse.move(x, y);
+        await this.sleep(Math.random() * 200 + 100); // 100-300ms delay
+      }
+
+      // Occasionally move cursor over elements
+      if (Math.random() > 0.5) {
+        try {
+          const buttons = await page.$$('button, a, input');
+          if (buttons.length > 0) {
+            const randomButton = buttons[Math.floor(Math.random() * buttons.length)];
+            await randomButton.hover();
+            await this.sleep(Math.random() * 500 + 200);
+          }
+        } catch (e) {
+          // Ignore errors in simulation
+        }
+      }
+    } catch (error) {
+      this.log(`Error in human behavior simulation: ${error.message}`, 'debug');
+    }
+  }
+
   async downloadSampleFromLink(url) {
     try {
       this.log(`Downloading 1MB sample from: ${url}`, 'debug');
       
+      // Get random headers for the download request
+      const downloadHeaders = this.headersManager.getRandomDownloadHeaders();
+      
+      // Add Range header for partial download
+      downloadHeaders['Range'] = 'bytes=0-1048575'; // Request first 1MB (1,048,576 bytes - 1)
+      
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'User-Agent': this.options.userAgent,
-          'Accept': '*/*',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Accept-Encoding': 'gzip, deflate',
-          'Connection': 'keep-alive',
-          'Upgrade-Insecure-Requests': '1',
-          'Range': 'bytes=0-1048575' // Request first 1MB (1,048,576 bytes - 1)
-        },
+        headers: downloadHeaders,
         timeout: 60000 // Increased timeout for actual download
       });
 
@@ -289,7 +408,7 @@ class GoFileKeepAlive {
 
   async run() {
     const startTime = Date.now();
-    this.log('Starting GoFile Keep Alive process (downloading 1MB samples)...');
+    this.log('Starting GoFile Keep Alive process (downloading 1MB samples with stealth features)...');
 
     let browser, context;
     
@@ -299,8 +418,16 @@ class GoFileKeepAlive {
 
       let totalSuccessfulDownloads = 0;
 
-      for (const url of urls) {
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
         try {
+          // Add random delay between URLs to appear more human-like
+          if (i > 0) {
+            const delay = Math.random() * 5000 + 2000; // 2-7 second delay between URLs
+            this.log(`Adding ${Math.round(delay)}ms delay before processing next URL`, 'debug');
+            await this.sleep(delay);
+          }
+
           const successfulDownloads = await this.processUrl(context, url);
           totalSuccessfulDownloads += successfulDownloads;
         } catch (error) {
@@ -333,7 +460,7 @@ class GoFileKeepAlive {
         throw new Error('No successful downloads were made despite finding download links');
       }
 
-      this.log('✓ GoFile Keep Alive process completed successfully');
+      this.log('✓ GoFile Keep Alive process completed successfully with enhanced stealth features');
       return this.stats;
       
     } catch (error) {
