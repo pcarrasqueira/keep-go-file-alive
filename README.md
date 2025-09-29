@@ -8,9 +8,12 @@ This repository contains a GitHub Action that periodically downloads sample data
 
 - **Automated Link Detection**: Intelligently finds download links on GoFile pages
 - **Multi-language Support**: Recognizes download buttons in multiple languages (English, Portuguese, French, Spanish, Italian)
+- **Anti-Detection Technology**: Advanced stealth features to avoid automation detection
+- **Realistic Headers**: Rotates between authentic browser headers from Chrome, Firefox, Safari, and Edge
+- **Human Behavior Simulation**: Mimics human interactions with random scrolling, mouse movements, and delays
 - **Robust Error Handling**: Comprehensive retry logic and error recovery
 - **Detailed Logging**: Configurable logging levels with comprehensive status reporting
-- **Performance Optimized**: Blocks unnecessary resources (images, stylesheets) for faster execution
+- **Performance Optimized**: Smart resource blocking while maintaining realistic behavior
 - **Configurable**: Multiple environment variables for customization
 
 ## 🚀 Usage
@@ -103,6 +106,28 @@ The GitHub Action has been optimized for faster execution:
 **Before**: ~5-8 minutes per run  
 **After**: ~2-3 minutes per run
 
+## 🥷 Stealth Technology
+
+The tool employs sophisticated anti-detection measures:
+
+### Header Management
+- **Dynamic User Agents**: Rotates between 16+ real browser user agents (Chrome, Firefox, Safari, Edge)
+- **Realistic Headers**: Includes proper Accept-Language, Accept-Encoding, and sec-ch-ua headers
+- **Browser-Specific**: Matches headers to the selected user agent for authenticity
+- **Session Consistency**: Maintains the same headers throughout a session for natural behavior
+
+### Browser Stealth
+- **Automation Hiding**: Removes `navigator.webdriver` and other automation indicators
+- **Fingerprint Randomization**: Random viewport sizes from common screen resolutions
+- **Resource Simulation**: Selectively blocks resources to mimic real users with ad blockers
+- **JavaScript Overrides**: Masks automation-specific properties and functions
+
+### Behavioral Simulation  
+- **Human Timing**: Random delays (2-7 seconds) between URL processing
+- **Natural Interactions**: Simulates scrolling, mouse movements, and hovering
+- **Realistic Navigation**: Waits for network idle before interacting with elements
+- **Organic Clicking**: Hovers before clicking with random delays (200-700ms)
+
 ## 🔧 Development
 
 ### Project Structure
@@ -111,7 +136,9 @@ The GitHub Action has been optimized for faster execution:
 ├── .github/workflows/
 │   └── keep-file-alive.yml     # Optimized production workflow
 ├── src/
-│   └── ping-gofile.js         # Main application logic
+│   ├── ping-gofile.js         # Main application logic
+│   ├── headers.js             # Anti-detection headers management
+│   └── config.json            # Configuration and stealth settings
 ├── package.json               # Dependencies and scripts
 └── README.md                  # This file
 ```
@@ -143,21 +170,34 @@ npm run validate
 ## 🛠️ How It Works
 
 1. **URL Parsing**: Parses and validates URLs from the `GOFILE_URLS` environment variable
-2. **Browser Launch**: Starts a Chromium browser with optimized settings
-3. **Page Navigation**: Visits each GoFile URL and waits for the page to load
+2. **Stealth Browser Launch**: Starts a Chromium browser with anti-detection features and realistic configuration
+3. **Page Navigation**: Visits each GoFile URL using randomized headers and human-like behavior
 4. **Link Detection**: 
    - Monitors network traffic for download URLs
    - Searches for download buttons and links on the page
+   - Simulates human interactions (scrolling, mouse movements, hovering)
    - Clicks download buttons to reveal direct download links
-5. **Sample Download**: Downloads the first 1MB of each detected download link to keep them active
+5. **Sample Download**: Downloads the first 1MB of each detected download link using rotating headers to keep them active
 6. **Reporting**: Provides detailed statistics and logs
+
+## 🔒 Anti-Detection Features
+
+The tool includes advanced stealth capabilities to avoid automation detection:
+
+- **Dynamic Headers**: Rotates between realistic headers from popular browsers (Chrome, Firefox, Safari, Edge)
+- **Browser Fingerprinting**: Randomizes viewport sizes, user agents, and browser properties
+- **Human Behavior**: Simulates natural scrolling, mouse movements, and interaction patterns  
+- **Smart Delays**: Adds random delays between operations to mimic human timing
+- **Resource Management**: Partially blocks resources (70% images, 50% fonts) for realistic performance
+- **Automation Hiding**: Removes webdriver properties and automation indicators
 
 ## 🔒 Security & Privacy
 
-- Uses official Playwright browser automation (no third-party tools)
+- Uses official Playwright browser automation with advanced anti-detection features
 - Downloads only 1MB samples from detected download links to verify accessibility
 - Downloaded data is immediately discarded, nothing is stored permanently
-- All communication uses standard HTTPS
+- All communication uses standard HTTPS with realistic browser headers
+- Mimics human behavior patterns to avoid triggering security systems
 
 ## 🚨 Troubleshooting
 
@@ -174,12 +214,20 @@ npm run validate
 
 **"Ping failed: 403 Forbidden"**
 - The download links may have expired despite our efforts
+- The tool now includes anti-detection features that should reduce this error
 - Try running the action more frequently
 - Check if the original GoFile links are still valid
 
 **Workflow timeouts**
 - Increase the timeout in the workflow file if processing many URLs
+- The tool now includes random delays for stealth, which may increase runtime
 - Consider splitting large URL lists into smaller batches
+
+**"Browser detection issues"**
+- The tool includes comprehensive stealth features to avoid detection
+- Headers are automatically randomized with each run
+- Human behavior simulation helps bypass automated checks
+- Enable verbose logging to see which headers are being used
 
 ### Getting Help
 
