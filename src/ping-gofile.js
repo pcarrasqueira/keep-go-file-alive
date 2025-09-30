@@ -105,17 +105,8 @@ class GoFileKeepAlive {
         '--no-default-browser-check',
         '--disable-default-apps',
         '--disable-extensions',
-        // Additional stealth arguments
-        '--disable-blink-features=AutomationControlled',
-        '--disable-features=VizDisplayCompositor',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--disable-features=TranslateUI',
-        '--disable-ipc-flooding-protection',
-        '--no-pings',
-        '--disable-web-security',
-        '--disable-features=site-per-process'
+        // Additional stealth arguments (reduced set for stability)
+        '--disable-blink-features=AutomationControlled'
       ]
     };
 
@@ -171,16 +162,16 @@ class GoFileKeepAlive {
     // Block unnecessary resources but allow more than before for realistic behavior
     await context.route('**/*', route => {
       const resourceType = route.request().resourceType();
-      const url = route.request().url();
       
-      // Block some images and fonts but not all to appear more realistic
-      if (resourceType === 'image' && Math.random() > 0.3) { // Block 70% of images
-        return route.abort();
-      }
-      if (resourceType === 'font' && Math.random() > 0.5) { // Block 50% of fonts
-        return route.abort();
-      }
+      // Block media and most stylesheets for performance
       if (resourceType === 'media') {
+        return route.abort();
+      }
+      if (resourceType === 'stylesheet') {
+        return route.abort();
+      }
+      // Block some images to reduce memory usage
+      if (resourceType === 'image') {
         return route.abort();
       }
       
@@ -213,8 +204,8 @@ class GoFileKeepAlive {
 
     this.log(`Navigating to ${url}`);
     
-    // Add random delay before navigation
-    await this.headersManager.addRandomDelay();
+    // Small delay before navigation
+    await this.sleep(500);
     
     await page.goto(url, { 
       waitUntil: 'networkidle', 
@@ -243,14 +234,10 @@ class GoFileKeepAlive {
         const elements = await page.$$(selector);
         for (const element of elements) {
           try {
-            // Add random delay and simulate mouse movement
-            await this.headersManager.addRandomDelay();
-            
             const text = (await element.innerText()).toLowerCase();
             if (/download|baixar|télécharger|descargar|scarica/.test(text)) {
-              // Hover before clicking for more realistic behavior
-              await element.hover();
-              await this.sleep(Math.random() * 500 + 200); // 200-700ms delay
+              // Small delay before clicking
+              await this.sleep(Math.random() * 300 + 200); // 200-500ms delay
               
               await element.click({ timeout: 5000 });
               await this.sleep(this.options.waitTime);
@@ -283,36 +270,10 @@ class GoFileKeepAlive {
    */
   async simulateHumanBehavior(page) {
     try {
-      // Random scroll behavior
-      const scrolls = Math.floor(Math.random() * 3) + 1; // 1-3 scrolls
-      for (let i = 0; i < scrolls; i++) {
-        const scrollY = Math.random() * 500 + 100; // 100-600px scroll
-        await page.evaluate((y) => window.scrollBy(0, y), scrollY);
-        await this.sleep(Math.random() * 1000 + 500); // 500-1500ms delay
-      }
-
-      // Random mouse movements
-      const movements = Math.floor(Math.random() * 3) + 1; // 1-3 movements
-      for (let i = 0; i < movements; i++) {
-        const x = Math.random() * 800 + 100; // Random x position
-        const y = Math.random() * 600 + 100; // Random y position
-        await page.mouse.move(x, y);
-        await this.sleep(Math.random() * 200 + 100); // 100-300ms delay
-      }
-
-      // Occasionally move cursor over elements
-      if (Math.random() > 0.5) {
-        try {
-          const buttons = await page.$$('button, a, input');
-          if (buttons.length > 0) {
-            const randomButton = buttons[Math.floor(Math.random() * buttons.length)];
-            await randomButton.hover();
-            await this.sleep(Math.random() * 500 + 200);
-          }
-        } catch (e) {
-          // Ignore errors in simulation
-        }
-      }
+      // Simple scroll behavior
+      const scrollY = Math.random() * 300 + 100; // 100-400px scroll
+      await page.evaluate((y) => window.scrollBy(0, y), scrollY);
+      await this.sleep(Math.random() * 500 + 300); // 300-800ms delay
     } catch (error) {
       this.log(`Error in human behavior simulation: ${error.message}`, 'debug');
     }
@@ -367,9 +328,11 @@ class GoFileKeepAlive {
   }
 
   async processUrl(context, url) {
-    const page = await context.newPage();
+    let page = null;
     
     try {
+      page = await context.newPage();
+      
       const downloadLinks = await this.retryOperation(async () => {
         return await this.findDownloadLinks(page, url);
       });
@@ -399,9 +362,16 @@ class GoFileKeepAlive {
       }
 
       return successCount;
+    } catch (error) {
+      this.log(`Error processing URL ${url}: ${error.message}`, 'error');
+      throw error;
     } finally {
-      if (!page.isClosed()) {
-        await page.close();
+      if (page && !page.isClosed()) {
+        try {
+          await page.close();
+        } catch (e) {
+          this.log(`Error closing page: ${e.message}`, 'debug');
+        }
       }
     }
   }

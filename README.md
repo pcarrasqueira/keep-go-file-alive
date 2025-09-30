@@ -10,7 +10,7 @@ This repository contains a GitHub Action that periodically downloads sample data
 - **Multi-language Support**: Recognizes download buttons in multiple languages (English, Portuguese, French, Spanish, Italian)
 - **Anti-Detection Technology**: Advanced stealth features to avoid automation detection
 - **Realistic Headers**: Rotates between authentic browser headers from Chrome, Firefox, Safari, and Edge
-- **Human Behavior Simulation**: Mimics human interactions with random scrolling, mouse movements, and delays
+- **Human Behavior Simulation**: Mimics human interactions with scrolling and natural timing
 - **Robust Error Handling**: Comprehensive retry logic and error recovery
 - **Detailed Logging**: Configurable logging levels with comprehensive status reporting
 - **Performance Optimized**: Smart resource blocking while maintaining realistic behavior
@@ -119,14 +119,14 @@ The tool employs sophisticated anti-detection measures:
 ### Browser Stealth
 - **Automation Hiding**: Removes `navigator.webdriver` and other automation indicators
 - **Fingerprint Randomization**: Random viewport sizes from common screen resolutions
-- **Resource Simulation**: Selectively blocks resources to mimic real users with ad blockers
+- **Efficient Resource Blocking**: Blocks images, stylesheets, and media for better performance
 - **JavaScript Overrides**: Masks automation-specific properties and functions
 
 ### Behavioral Simulation  
 - **Human Timing**: Random delays (2-7 seconds) between URL processing
-- **Natural Interactions**: Simulates scrolling, mouse movements, and hovering
+- **Natural Interactions**: Simulates simple scrolling for realistic behavior
 - **Realistic Navigation**: Waits for network idle before interacting with elements
-- **Organic Clicking**: Hovers before clicking with random delays (200-700ms)
+- **Organic Clicking**: Small delays before clicking (200-500ms)
 
 ## 🔧 Development
 
@@ -175,7 +175,7 @@ npm run validate
 4. **Link Detection**: 
    - Monitors network traffic for download URLs
    - Searches for download buttons and links on the page
-   - Simulates human interactions (scrolling, mouse movements, hovering)
+   - Simulates simple scrolling for realistic behavior
    - Clicks download buttons to reveal direct download links
 5. **Sample Download**: Downloads the first 1MB of each detected download link using rotating headers to keep them active
 6. **Reporting**: Provides detailed statistics and logs
@@ -186,9 +186,9 @@ The tool includes advanced stealth capabilities to avoid automation detection:
 
 - **Dynamic Headers**: Rotates between realistic headers from popular browsers (Chrome, Firefox, Safari, Edge)
 - **Browser Fingerprinting**: Randomizes viewport sizes, user agents, and browser properties
-- **Human Behavior**: Simulates natural scrolling, mouse movements, and interaction patterns  
+- **Human Behavior**: Simulates natural scrolling and interaction timing patterns  
 - **Smart Delays**: Adds random delays between operations to mimic human timing
-- **Resource Management**: Partially blocks resources (70% images, 50% fonts) for realistic performance
+- **Resource Management**: Blocks images, stylesheets, and media to improve performance and reduce memory usage
 - **Automation Hiding**: Removes webdriver properties and automation indicators
 
 ## 🔒 Security & Privacy
