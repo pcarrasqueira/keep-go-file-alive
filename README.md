@@ -117,10 +117,10 @@ The tool employs sophisticated anti-detection measures:
 - **Session Consistency**: Maintains the same headers throughout a session for natural behavior
 
 ### Browser Stealth
-- **Automation Hiding**: Removes `navigator.webdriver` and other automation indicators
+- **Automation Hiding**: Removes `navigator.webdriver` property
 - **Fingerprint Randomization**: Random viewport sizes from common screen resolutions
-- **Efficient Resource Blocking**: Blocks images, stylesheets, and media for better performance
-- **JavaScript Overrides**: Masks automation-specific properties and functions
+- **Efficient Resource Blocking**: Blocks images, stylesheets, fonts, and media for better performance and stability
+- **Minimal Overhead**: Streamlined browser setup for maximum stability
 
 ### Behavioral Simulation  
 - **Human Timing**: Random delays (2-7 seconds) between URL processing
@@ -185,11 +185,11 @@ npm run validate
 The tool includes advanced stealth capabilities to avoid automation detection:
 
 - **Dynamic Headers**: Rotates between realistic headers from popular browsers (Chrome, Firefox, Safari, Edge)
-- **Browser Fingerprinting**: Randomizes viewport sizes, user agents, and browser properties
+- **Browser Fingerprinting**: Randomizes viewport sizes and user agents
 - **Human Behavior**: Simulates natural scrolling and interaction timing patterns  
 - **Smart Delays**: Adds random delays between operations to mimic human timing
-- **Resource Management**: Blocks images, stylesheets, and media to improve performance and reduce memory usage
-- **Automation Hiding**: Removes webdriver properties and automation indicators
+- **Resource Management**: Blocks images, stylesheets, fonts, and media to improve performance and stability
+- **Automation Hiding**: Removes webdriver property
 
 ## 🔒 Security & Privacy
 

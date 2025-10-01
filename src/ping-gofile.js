@@ -120,58 +120,23 @@ class GoFileKeepAlive {
     const context = await browser.newContext({
       userAgent: browserHeaders['User-Agent'],
       viewport: viewport,
-      ignoreHTTPSErrors: true,
-      extraHTTPHeaders: browserHeaders,
-      locale: 'en-US',
-      timezoneId: 'America/New_York', // Common timezone
-      permissions: ['geolocation', 'notifications'], // Common permissions
+      ignoreHTTPSErrors: true
     });
 
-    // Add stealth script to hide automation
+    // Add minimal stealth script to hide automation
     await context.addInitScript(() => {
       // Hide webdriver property
       Object.defineProperty(navigator, 'webdriver', {
         get: () => undefined,
       });
-
-      // Mock plugins
-      Object.defineProperty(navigator, 'plugins', {
-        get: () => [1, 2, 3, 4, 5],
-      });
-
-      // Mock languages
-      Object.defineProperty(navigator, 'languages', {
-        get: () => ['en-US', 'en'],
-      });
-
-      // Override chrome property
-      window.chrome = {
-        runtime: {},
-      };
-
-      // Hide automation indicators
-      const originalQuery = window.document.querySelector;
-      window.document.querySelector = function(selector) {
-        if (selector === 'img[src*="data:image/png;base64,"]') {
-          return null;
-        }
-        return originalQuery.call(this, selector);
-      };
     });
 
-    // Block unnecessary resources but allow more than before for realistic behavior
+    // Block unnecessary resources for performance
     await context.route('**/*', route => {
       const resourceType = route.request().resourceType();
       
-      // Block media and most stylesheets for performance
-      if (resourceType === 'media') {
-        return route.abort();
-      }
-      if (resourceType === 'stylesheet') {
-        return route.abort();
-      }
-      // Block some images to reduce memory usage
-      if (resourceType === 'image') {
+      // Block media, stylesheets, and images to reduce memory usage
+      if (['media', 'stylesheet', 'image', 'font'].includes(resourceType)) {
         return route.abort();
       }
       
@@ -331,9 +296,19 @@ class GoFileKeepAlive {
     let page = null;
     
     try {
-      page = await context.newPage();
-      
+      // Retry the entire page creation and navigation process
       const downloadLinks = await this.retryOperation(async () => {
+        // Close previous page if it exists and is not closed
+        if (page && !page.isClosed()) {
+          try {
+            await page.close();
+          } catch (e) {
+            this.log(`Error closing previous page: ${e.message}`, 'debug');
+          }
+        }
+        
+        // Create a fresh page for each attempt
+        page = await context.newPage();
         return await this.findDownloadLinks(page, url);
       });
 
