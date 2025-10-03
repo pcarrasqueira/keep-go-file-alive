@@ -21,21 +21,21 @@ This repository contains a GitHub Action that periodically downloads sample data
 ### Option 1: Fork this Repository
 
 1. Fork this repository to your GitHub account
-2. Go to your forked repository's Settings → Secrets and Variables → Actions
-3. Create a new repository secret named `GOFILE_URLS`
+2. Go to your forked repository's Settings → Secrets and Variables → Actions → Variables tab
+3. Create a new repository variable named `GOFILE_URLS`
 4. Add your GoFile URLs, one per line:
    ```
    https://gofile.io/d/abc123
    https://gofile.io/d/def456
    https://gofile.io/d/xyz789
    ```
-5. The action will run automatically every 5 days at 7:00 AM UTC, or you can trigger it manually
+5. The action will run automatically every 3 days at 7:00 AM UTC, or you can trigger it manually
 
 ### Option 2: Use in Your Own Repository
 
 1. Copy the `.github/workflows/keep-file-alive.yml` file to your repository
 2. Copy the `src/ping-gofile.js` file and `package.json` 
-3. Set up the `GOFILE_URLS` secret as described above
+3. Set up the `GOFILE_URLS` variable as described above
 
 ### Option 3: Manual Usage
 
@@ -204,7 +204,7 @@ The tool includes advanced stealth capabilities to avoid automation detection:
 ### Common Issues
 
 **"No URLs found in GOFILE_URLS"**
-- Check that the secret is properly set in your repository settings
+- Check that the variable is properly set in your repository settings (Settings → Secrets and Variables → Actions → Variables)
 - Ensure URLs are separated by newlines, not spaces or commas
 
 **"No download links detected"**

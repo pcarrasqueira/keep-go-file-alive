@@ -40,7 +40,7 @@ jobs:
       - name: Run GoFile Keep Alive
         run: node src/ping-gofile.js
         env:
-          GOFILE_URLS: ${{ secrets.GOFILE_URLS }}
+          GOFILE_URLS: ${{ vars.GOFILE_URLS }}
           VERBOSE: ${{ github.event.inputs.verbose || 'false' }}
           MAX_RETRIES: ${{ github.event.inputs.max_retries || '3' }}
           HEADLESS: 'true'
