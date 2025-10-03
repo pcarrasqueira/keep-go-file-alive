@@ -171,7 +171,7 @@ npm run validate
 
 1. **URL Parsing**: Parses and validates URLs from the `GOFILE_URLS` environment variable
 2. **Stealth Browser Launch**: Starts a Chromium browser with anti-detection features and realistic configuration
-3. **Page Navigation**: Visits each GoFile URL using randomized headers and human-like behavior
+3. **Page Navigation**: Visits each GoFile URL using randomized headers and lightweight navigation (domcontentloaded)
 4. **Link Detection**: 
    - Monitors network traffic for download URLs
    - Searches for download buttons and links on the page
@@ -217,6 +217,12 @@ The tool includes advanced stealth capabilities to avoid automation detection:
 - The tool now includes anti-detection features that should reduce this error
 - Try running the action more frequently
 - Check if the original GoFile links are still valid
+
+**"ERR_INSUFFICIENT_RESOURCES"**
+- This error indicates the browser ran out of memory during navigation
+- The tool now uses lightweight navigation (domcontentloaded) to reduce memory usage
+- Resource blocking is enabled to minimize memory consumption
+- If this persists, the GoFile page may be loading too many resources
 
 **Workflow timeouts**
 - Increase the timeout in the workflow file if processing many URLs

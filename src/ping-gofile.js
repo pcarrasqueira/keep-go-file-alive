@@ -173,9 +173,12 @@ class GoFileKeepAlive {
     await this.sleep(500);
     
     await page.goto(url, { 
-      waitUntil: 'networkidle', 
+      waitUntil: 'domcontentloaded', 
       timeout: this.options.timeout 
     });
+    
+    // Wait a bit for any dynamic content to load
+    await this.sleep(2000);
 
     // Simulate human-like behavior
     await this.simulateHumanBehavior(page);
