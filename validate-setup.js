@@ -126,9 +126,9 @@ class SetupValidator {
     if (process.env.GITHUB_ACTIONS) {
       this.log('Running in GitHub Actions environment', 'info');
       
-      this.check('GitHub Actions secrets available', () => {
+      this.check('GitHub Actions variables available', () => {
         if (!process.env.GOFILE_URLS) {
-          return 'GOFILE_URLS secret not available. Check repository secrets.';
+          return 'GOFILE_URLS variable not available. Check repository variables.';
         }
       });
     }
@@ -164,7 +164,7 @@ class SetupValidator {
       console.log('\n💡 Next steps:');
       console.log('1. Set GOFILE_URLS environment variable with your URLs');
       console.log('2. Run: npm start');
-      console.log('3. Or set up GitHub repository secrets for automated runs');
+      console.log('3. Or set up GitHub repository variables for automated runs');
     }
 
     return this.errors.length === 0;

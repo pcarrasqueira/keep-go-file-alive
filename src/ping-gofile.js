@@ -1,4 +1,5 @@
 const { chromium } = require('playwright');
+const HeadersManager = require('./headers');
 
 class GoFileKeepAlive {
   constructor(options = {}) {
@@ -7,11 +8,12 @@ class GoFileKeepAlive {
       timeout: parseInt(process.env.PAGE_TIMEOUT) || 60000,
       waitTime: parseInt(process.env.WAIT_TIME) || 5000,
       headless: process.env.HEADLESS !== 'false',
-      userAgent: process.env.USER_AGENT || 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+      userAgent: process.env.USER_AGENT || null, // Will be set by HeadersManager
       verbose: process.env.VERBOSE === 'true',
       ...options
     };
     
+    this.headersManager = new HeadersManager();
     this.stats = {
       totalUrls: 0,
       totalLinks: 0,
@@ -85,7 +87,12 @@ class GoFileKeepAlive {
   }
 
   async setupBrowser() {
-    this.log('Launching browser...');
+    this.log('Launching browser with stealth configuration...');
+    
+    // Reset headers for new session
+    this.headersManager.resetSession();
+    const browserHeaders = this.headersManager.getRandomBrowserHeaders();
+    const viewport = this.headersManager.getRandomViewport();
     
     const launchOptions = {
       headless: this.options.headless,
@@ -97,7 +104,9 @@ class GoFileKeepAlive {
         '--no-first-run',
         '--no-default-browser-check',
         '--disable-default-apps',
-        '--disable-extensions'
+        '--disable-extensions',
+        // Additional stealth arguments (reduced set for stability)
+        '--disable-blink-features=AutomationControlled'
       ]
     };
 
@@ -109,19 +118,33 @@ class GoFileKeepAlive {
     const browser = await chromium.launch(launchOptions);
 
     const context = await browser.newContext({
-      userAgent: this.options.userAgent,
-      viewport: { width: 1920, height: 1080 },
+      userAgent: browserHeaders['User-Agent'],
+      viewport: viewport,
       ignoreHTTPSErrors: true
     });
 
-    // Block unnecessary resources to improve performance
+    // Add minimal stealth script to hide automation
+    await context.addInitScript(() => {
+      // Hide webdriver property
+      Object.defineProperty(navigator, 'webdriver', {
+        get: () => undefined,
+      });
+    });
+
+    // Block unnecessary resources for performance
     await context.route('**/*', route => {
       const resourceType = route.request().resourceType();
-      if (['image', 'font', 'stylesheet', 'media'].includes(resourceType)) {
+      
+      // Block media, stylesheets, and images to reduce memory usage
+      if (['media', 'stylesheet', 'image', 'font'].includes(resourceType)) {
         return route.abort();
       }
+      
       route.continue();
     });
+
+    this.log(`Browser configured with User-Agent: ${browserHeaders['User-Agent']}`, 'debug');
+    this.log(`Viewport: ${viewport.width}x${viewport.height}`, 'debug');
 
     return { browser, context };
   }
@@ -145,10 +168,21 @@ class GoFileKeepAlive {
     });
 
     this.log(`Navigating to ${url}`);
+    
+    // Small delay before navigation
+    await this.sleep(500);
+    
     await page.goto(url, { 
-      waitUntil: 'networkidle', 
+      waitUntil: 'domcontentloaded', 
       timeout: this.options.timeout 
     });
+    
+    // Wait longer for dynamic content to load on GoFile pages
+    this.log(`Waiting for dynamic content to load...`, 'debug');
+    await this.sleep(5000); // Increased from 2s to 5s for better reliability
+
+    // Simulate human-like behavior
+    await this.simulateHumanBehavior(page);
 
     // Try to find and click download buttons
     const downloadSelectors = [
@@ -161,17 +195,35 @@ class GoFileKeepAlive {
       '[data-cy="download"]',
       '.download-button',
       '#download',
-      '.btn-download'
+      '.btn-download',
+      '[class*="download"]',
+      '[id*="download"]',
+      'a[class*="btn"]',
+      'button[class*="btn"]'
     ];
 
+    this.log(`Searching for download buttons...`, 'debug');
+    let clickedButtons = 0;
+    
     for (const selector of downloadSelectors) {
       try {
         const elements = await page.$$(selector);
+        this.log(`Found ${elements.length} elements for selector: ${selector}`, 'debug');
+        
         for (const element of elements) {
           try {
+            const isVisible = await element.isVisible();
+            if (!isVisible) continue;
+            
             const text = (await element.innerText()).toLowerCase();
-            if (/download|baixar|télécharger|descargar|scarica/.test(text)) {
+            this.log(`Checking element with text: "${text}"`, 'debug');
+            
+            if (/download|baixar|télécharger|descargar|scarica|get|obter/.test(text)) {
+              // Small delay before clicking
+              await this.sleep(Math.random() * 300 + 200); // 200-500ms delay
+              
               await element.click({ timeout: 5000 });
+              clickedButtons++;
               await this.sleep(this.options.waitTime);
               this.log(`Clicked download button with text: ${text}`, 'debug');
             }
@@ -183,35 +235,63 @@ class GoFileKeepAlive {
         this.log(`Error finding elements with selector ${selector}: ${e.message}`, 'debug');
       }
     }
+    
+    this.log(`Clicked ${clickedButtons} download buttons`, 'debug');
 
     // Extract direct download links from the page
     try {
       const pageLinks = await page.$$eval('a[href*="/download/"]', 
         elements => elements.map(el => el.href)
       );
+      this.log(`Found ${pageLinks.length} direct download links on page`, 'debug');
       pageLinks.forEach(link => downloadLinks.add(link));
     } catch (e) {
       this.log(`Error extracting page links: ${e.message}`, 'debug');
     }
+    
+    // Also check for links in the page content that match GoFile download patterns
+    try {
+      const allLinks = await page.$$eval('a[href]', 
+        elements => elements.map(el => el.href).filter(href => 
+          href.includes('srv-store') || href.includes('/download/') || href.includes('gofile.io/download')
+        )
+      );
+      this.log(`Found ${allLinks.length} GoFile-related links in page content`, 'debug');
+      allLinks.forEach(link => downloadLinks.add(link));
+    } catch (e) {
+      this.log(`Error extracting GoFile links: ${e.message}`, 'debug');
+    }
 
     return Array.from(downloadLinks);
+  }
+
+  /**
+   * Simulate human-like behavior on the page
+   */
+  async simulateHumanBehavior(page) {
+    try {
+      // Simple scroll behavior
+      const scrollY = Math.random() * 300 + 100; // 100-400px scroll
+      await page.evaluate((y) => window.scrollBy(0, y), scrollY);
+      await this.sleep(Math.random() * 500 + 300); // 300-800ms delay
+    } catch (error) {
+      this.log(`Error in human behavior simulation: ${error.message}`, 'debug');
+    }
   }
 
   async downloadSampleFromLink(url) {
     try {
       this.log(`Downloading 1MB sample from: ${url}`, 'debug');
       
+      // Get random headers for the download request
+      const downloadHeaders = this.headersManager.getRandomDownloadHeaders();
+      
+      // Add Range header for partial download
+      downloadHeaders['Range'] = 'bytes=0-1048575'; // Request first 1MB (1,048,576 bytes - 1)
+      
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'User-Agent': this.options.userAgent,
-          'Accept': '*/*',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Accept-Encoding': 'gzip, deflate',
-          'Connection': 'keep-alive',
-          'Upgrade-Insecure-Requests': '1',
-          'Range': 'bytes=0-1048575' // Request first 1MB (1,048,576 bytes - 1)
-        },
+        headers: downloadHeaders,
         timeout: 60000 // Increased timeout for actual download
       });
 
@@ -248,10 +328,22 @@ class GoFileKeepAlive {
   }
 
   async processUrl(context, url) {
-    const page = await context.newPage();
+    let page = null;
     
     try {
+      // Retry the entire page creation and navigation process
       const downloadLinks = await this.retryOperation(async () => {
+        // Close previous page if it exists and is not closed
+        if (page && !page.isClosed()) {
+          try {
+            await page.close();
+          } catch (e) {
+            this.log(`Error closing previous page: ${e.message}`, 'debug');
+          }
+        }
+        
+        // Create a fresh page for each attempt
+        page = await context.newPage();
         return await this.findDownloadLinks(page, url);
       });
 
@@ -280,16 +372,23 @@ class GoFileKeepAlive {
       }
 
       return successCount;
+    } catch (error) {
+      this.log(`Error processing URL ${url}: ${error.message}`, 'error');
+      throw error;
     } finally {
-      if (!page.isClosed()) {
-        await page.close();
+      if (page && !page.isClosed()) {
+        try {
+          await page.close();
+        } catch (e) {
+          this.log(`Error closing page: ${e.message}`, 'debug');
+        }
       }
     }
   }
 
   async run() {
     const startTime = Date.now();
-    this.log('Starting GoFile Keep Alive process (downloading 1MB samples)...');
+    this.log('Starting GoFile Keep Alive process (downloading 1MB samples with stealth features)...');
 
     let browser, context;
     
@@ -299,8 +398,16 @@ class GoFileKeepAlive {
 
       let totalSuccessfulDownloads = 0;
 
-      for (const url of urls) {
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
         try {
+          // Add random delay between URLs to appear more human-like
+          if (i > 0) {
+            const delay = Math.random() * 5000 + 2000; // 2-7 second delay between URLs
+            this.log(`Adding ${Math.round(delay)}ms delay before processing next URL`, 'debug');
+            await this.sleep(delay);
+          }
+
           const successfulDownloads = await this.processUrl(context, url);
           totalSuccessfulDownloads += successfulDownloads;
         } catch (error) {
@@ -333,7 +440,7 @@ class GoFileKeepAlive {
         throw new Error('No successful downloads were made despite finding download links');
       }
 
-      this.log('✓ GoFile Keep Alive process completed successfully');
+      this.log('✓ GoFile Keep Alive process completed successfully with enhanced stealth features');
       return this.stats;
       
     } catch (error) {
