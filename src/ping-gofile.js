@@ -177,8 +177,9 @@ class GoFileKeepAlive {
       timeout: this.options.timeout 
     });
     
-    // Wait a bit for any dynamic content to load
-    await this.sleep(2000);
+    // Wait longer for dynamic content to load on GoFile pages
+    this.log(`Waiting for dynamic content to load...`, 'debug');
+    await this.sleep(5000); // Increased from 2s to 5s for better reliability
 
     // Simulate human-like behavior
     await this.simulateHumanBehavior(page);
@@ -194,20 +195,35 @@ class GoFileKeepAlive {
       '[data-cy="download"]',
       '.download-button',
       '#download',
-      '.btn-download'
+      '.btn-download',
+      '[class*="download"]',
+      '[id*="download"]',
+      'a[class*="btn"]',
+      'button[class*="btn"]'
     ];
 
+    this.log(`Searching for download buttons...`, 'debug');
+    let clickedButtons = 0;
+    
     for (const selector of downloadSelectors) {
       try {
         const elements = await page.$$(selector);
+        this.log(`Found ${elements.length} elements for selector: ${selector}`, 'debug');
+        
         for (const element of elements) {
           try {
+            const isVisible = await element.isVisible();
+            if (!isVisible) continue;
+            
             const text = (await element.innerText()).toLowerCase();
-            if (/download|baixar|télécharger|descargar|scarica/.test(text)) {
+            this.log(`Checking element with text: "${text}"`, 'debug');
+            
+            if (/download|baixar|télécharger|descargar|scarica|get|obter/.test(text)) {
               // Small delay before clicking
               await this.sleep(Math.random() * 300 + 200); // 200-500ms delay
               
               await element.click({ timeout: 5000 });
+              clickedButtons++;
               await this.sleep(this.options.waitTime);
               this.log(`Clicked download button with text: ${text}`, 'debug');
             }
@@ -219,15 +235,31 @@ class GoFileKeepAlive {
         this.log(`Error finding elements with selector ${selector}: ${e.message}`, 'debug');
       }
     }
+    
+    this.log(`Clicked ${clickedButtons} download buttons`, 'debug');
 
     // Extract direct download links from the page
     try {
       const pageLinks = await page.$$eval('a[href*="/download/"]', 
         elements => elements.map(el => el.href)
       );
+      this.log(`Found ${pageLinks.length} direct download links on page`, 'debug');
       pageLinks.forEach(link => downloadLinks.add(link));
     } catch (e) {
       this.log(`Error extracting page links: ${e.message}`, 'debug');
+    }
+    
+    // Also check for links in the page content that match GoFile download patterns
+    try {
+      const allLinks = await page.$$eval('a[href]', 
+        elements => elements.map(el => el.href).filter(href => 
+          href.includes('srv-store') || href.includes('/download/') || href.includes('gofile.io/download')
+        )
+      );
+      this.log(`Found ${allLinks.length} GoFile-related links in page content`, 'debug');
+      allLinks.forEach(link => downloadLinks.add(link));
+    } catch (e) {
+      this.log(`Error extracting GoFile links: ${e.message}`, 'debug');
     }
 
     return Array.from(downloadLinks);

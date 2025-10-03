@@ -172,11 +172,14 @@ npm run validate
 1. **URL Parsing**: Parses and validates URLs from the `GOFILE_URLS` environment variable
 2. **Stealth Browser Launch**: Starts a Chromium browser with anti-detection features and realistic configuration
 3. **Page Navigation**: Visits each GoFile URL using randomized headers and lightweight navigation (domcontentloaded)
-4. **Link Detection**: 
+4. **Link Detection** (Enhanced): 
+   - Waits 5 seconds for JavaScript-heavy GoFile pages to fully render
    - Monitors network traffic for download URLs
-   - Searches for download buttons and links on the page
+   - Searches for download buttons using 14+ different selectors
+   - Checks element visibility before interaction
+   - Extracts all GoFile-related links from page content
    - Simulates simple scrolling for realistic behavior
-   - Clicks download buttons to reveal direct download links
+   - Clicks visible download buttons to reveal direct download links
 5. **Sample Download**: Downloads the first 1MB of each detected download link using rotating headers to keep them active
 6. **Reporting**: Provides detailed statistics and logs
 
