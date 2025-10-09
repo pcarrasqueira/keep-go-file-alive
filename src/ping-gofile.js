@@ -212,68 +212,37 @@ class GoFileKeepAlive {
     // Simulate human-like behavior
     await this.simulateHumanBehavior(page);
 
-    // Try to find and click download buttons
-    const downloadSelectors = [
-      'a[href*="/download/"]',
-      'button:has-text("download")',
-      'button:has-text("baixar")',
-      'button:has-text("télécharger")',
-      'button:has-text("descargar")',
-      'button:has-text("scarica")',
-      '[data-cy="download"]',
-      '.download-button',
-      '#download',
-      '.btn-download',
-      '[class*="download"]',
-      '[id*="download"]',
-      'a[class*="btn"]',
-      'button[class*="btn"]'
-    ];
+    // Try to find and click download buttons (case insensitive)
+    const selector = 'button:has-text("download")';
 
     this.log(`Searching for download buttons...`, 'debug');
     let clickedButtons = 0;
-    const clickedElementIds = new Set(); // Track clicked elements by unique ID
     
-    for (const selector of downloadSelectors) {
-      try {
-        const elements = await page.$$(selector);
-        this.log(`Found ${elements.length} elements for selector: ${selector}`, 'debug');
-        
-        for (const element of elements) {
-          try {
-            const isVisible = await element.isVisible();
-            if (!isVisible) continue;
-            
-            // Create a unique identifier for the element using its position and text
-            const text = (await element.innerText()).toLowerCase();
-            const boundingBox = await element.boundingBox();
-            const elementId = boundingBox ? `${boundingBox.x},${boundingBox.y},${boundingBox.width},${boundingBox.height}` : text;
-            
-            // Skip if we already clicked this element
-            if (clickedElementIds.has(elementId)) {
-              this.log(`Skipping already clicked element`, 'debug');
-              continue;
-            }
-            
-            this.log(`Checking element with text: "${text}"`, 'debug');
-            
-            if (/download|baixar|télécharger|descargar|scarica|get|obter/.test(text)) {
-              // Small delay before clicking
-              await this.sleep(Math.random() * 300 + 200); // 200-500ms delay
-              
-              await element.click({ timeout: 5000 });
-              clickedElementIds.add(elementId); // Mark as clicked
-              clickedButtons++;
-              await this.sleep(this.options.waitTime);
-              this.log(`Clicked download button with text: ${text}`, 'debug');
-            }
-          } catch (e) {
-            this.log(`Error clicking element: ${e.message}`, 'debug');
-          }
+    try {
+      const elements = await page.$$(selector);
+      this.log(`Found ${elements.length} elements for selector: ${selector}`, 'debug');
+      
+      for (const element of elements) {
+        try {
+          const isVisible = await element.isVisible();
+          if (!isVisible) continue;
+          
+          const text = await element.innerText();
+          this.log(`Checking element with text: "${text}"`, 'debug');
+          
+          // Small delay before clicking
+          await this.sleep(Math.random() * 300 + 200); // 200-500ms delay
+          
+          await element.click({ timeout: 5000 });
+          clickedButtons++;
+          await this.sleep(this.options.waitTime);
+          this.log(`Clicked download button with text: ${text}`, 'debug');
+        } catch (e) {
+          this.log(`Error clicking element: ${e.message}`, 'debug');
         }
-      } catch (e) {
-        this.log(`Error finding elements with selector ${selector}: ${e.message}`, 'debug');
       }
+    } catch (e) {
+      this.log(`Error finding elements with selector ${selector}: ${e.message}`, 'debug');
     }
     
     this.log(`Clicked ${clickedButtons} download buttons`, 'debug');
