@@ -53,7 +53,18 @@ class GoFileKeepAlive {
         this.log(`Attempt ${attempt}/${maxRetries} failed: ${error.message}`, 'warn');
         
         if (attempt < maxRetries) {
-          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
+          // Check if error is rate limiting (429) - use longer delays
+          const isRateLimited = error.message && error.message.includes('429');
+          let delay;
+          
+          if (isRateLimited) {
+            // For rate limiting, use much longer delays: 10s, 30s, 60s
+            delay = Math.min(10000 * Math.pow(3, attempt - 1), 60000);
+          } else {
+            // For other errors, use standard exponential backoff
+            delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+          }
+          
           await this.sleep(delay);
         }
       }
@@ -147,6 +158,23 @@ class GoFileKeepAlive {
     this.log(`Viewport: ${viewport.width}x${viewport.height}`, 'debug');
 
     return { browser, context };
+  }
+
+  /**
+   * Check if browser and context are still alive
+   */
+  async isBrowserAlive(browser, context) {
+    try {
+      if (!browser || !browser.isConnected()) {
+        return false;
+      }
+      if (!context || context.pages === undefined) {
+        return false;
+      }
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   async findDownloadLinks(page, url) {
@@ -342,6 +370,11 @@ class GoFileKeepAlive {
           }
         }
         
+        // Verify context is still valid before creating new page
+        if (!context || !context.pages) {
+          throw new Error('Browser context is no longer valid');
+        }
+        
         // Create a fresh page for each attempt
         page = await context.newPage();
         return await this.findDownloadLinks(page, url);
@@ -408,11 +441,44 @@ class GoFileKeepAlive {
             await this.sleep(delay);
           }
 
+          // Check if browser is still alive before processing
+          const browserAlive = await this.isBrowserAlive(browser, context);
+          if (!browserAlive) {
+            this.log('Browser/context is no longer alive, recreating...', 'warn');
+            
+            // Close old browser if it exists
+            try {
+              if (browser) {
+                await browser.close();
+              }
+            } catch (e) {
+              this.log(`Error closing old browser: ${e.message}`, 'debug');
+            }
+            
+            // Create new browser and context
+            ({ browser, context } = await this.setupBrowser());
+          }
+
           const successfulDownloads = await this.processUrl(context, url);
           totalSuccessfulDownloads += successfulDownloads;
         } catch (error) {
           this.log(`Failed to process URL ${url}: ${error.message}`, 'error');
           this.stats.errors.push({ url, error: error.message });
+          
+          // If error indicates browser issues, try to recreate browser for next URL
+          if (error.message && (error.message.includes('closed') || error.message.includes('Target'))) {
+            this.log('Browser issue detected, will recreate for next URL', 'warn');
+            try {
+              if (browser) {
+                await browser.close();
+              }
+            } catch (e) {
+              this.log(`Error closing browser after error: ${e.message}`, 'debug');
+            }
+            // Set to null so it gets recreated on next iteration
+            browser = null;
+            context = null;
+          }
         }
       }
 
@@ -448,8 +514,12 @@ class GoFileKeepAlive {
       throw error;
     } finally {
       if (browser) {
-        await browser.close();
-        this.log('Browser closed');
+        try {
+          await browser.close();
+          this.log('Browser closed');
+        } catch (e) {
+          this.log(`Error closing browser in finally: ${e.message}`, 'debug');
+        }
       }
     }
   }
