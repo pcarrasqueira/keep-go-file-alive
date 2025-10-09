@@ -80,8 +80,8 @@ class SetupValidator {
         return 'node_modules not found. Run: npm install';
       }
       
-      if (!fs.existsSync('node_modules/playwright')) {
-        return 'Playwright not installed. Run: npm install';
+      if (!fs.existsSync('node_modules/puppeteer-extra')) {
+        return 'Puppeteer-extra not installed. Run: npm install';
       }
     });
 

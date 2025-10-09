@@ -2,7 +2,7 @@
 
 [![Keep Gofile Alive](https://github.com/pcarrasqueira/keep-go-file-alive/actions/workflows/keep-file-alive.yml/badge.svg?branch=main)](https://github.com/pcarrasqueira/keep-go-file-alive/actions/workflows/keep-file-alive.yml)
 
-This repository contains a GitHub Action that periodically downloads sample data from GoFile download links to keep them alive and prevent expiration. The tool uses Playwright to automate browser interactions and intelligently detect download links.
+This repository contains a GitHub Action that periodically downloads sample data from GoFile download links to keep them alive and prevent expiration. The tool uses Puppeteer with the stealth plugin to automate browser interactions and intelligently detect download links.
 
 ## ✨ Features
 
@@ -99,7 +99,7 @@ Failed pings: 0
 The GitHub Action has been optimized for faster execution:
 
 - **Reduced Runtime**: Uses Alpine Linux container with pre-installed Chromium (~60% faster)
-- **No Browser Downloads**: System Chromium eliminates Playwright installation time
+- **No Browser Downloads**: System Chromium eliminates browser installation time
 - **Streamlined Workflow**: Tests moved to separate workflow, production runs only essential steps
 - **Smaller Timeout**: Reduced overall workflow timeout from 30 to 15 minutes
 
@@ -117,7 +117,8 @@ The tool employs sophisticated anti-detection measures:
 - **Session Consistency**: Maintains the same headers throughout a session for natural behavior
 
 ### Browser Stealth
-- **Automation Hiding**: Removes `navigator.webdriver` property
+- **Puppeteer-Extra Stealth Plugin**: Advanced stealth plugin that applies evasions automatically
+- **Automation Hiding**: Removes `navigator.webdriver` property and other automation indicators
 - **Fingerprint Randomization**: Random viewport sizes from common screen resolutions
 - **Efficient Resource Blocking**: Blocks images, stylesheets, fonts, and media for better performance and stability
 - **Minimal Overhead**: Streamlined browser setup for maximum stability
@@ -156,12 +157,14 @@ npm start
 ### Local Development Setup
 
 ```bash
-# Install dependencies (without Playwright browsers)
+# Install dependencies (without downloading Chromium)
 npm install --ignore-scripts
 
-# For local browser testing, install Playwright browsers manually
-# (Only needed if not using system Chromium)
-npx playwright install chromium
+# For local browser testing with system Chromium
+# Set the executable path:
+export PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+# or
+export PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome
 
 # Validate setup
 npm run validate
@@ -170,7 +173,7 @@ npm run validate
 ## 🛠️ How It Works
 
 1. **URL Parsing**: Parses and validates URLs from the `GOFILE_URLS` environment variable
-2. **Stealth Browser Launch**: Starts a Chromium browser with anti-detection features and realistic configuration
+2. **Stealth Browser Launch**: Starts a Chromium browser with puppeteer-extra stealth plugin for advanced anti-detection
 3. **Page Navigation**: Visits each GoFile URL using randomized headers and lightweight navigation (domcontentloaded)
 4. **Link Detection** (Enhanced): 
    - Waits 5 seconds for JavaScript-heavy GoFile pages to fully render
@@ -187,16 +190,17 @@ npm run validate
 
 The tool includes advanced stealth capabilities to avoid automation detection:
 
+- **Puppeteer-Extra Stealth Plugin**: Comprehensive stealth plugin with multiple evasion techniques
 - **Dynamic Headers**: Rotates between realistic headers from popular browsers (Chrome, Firefox, Safari, Edge)
 - **Browser Fingerprinting**: Randomizes viewport sizes and user agents
 - **Human Behavior**: Simulates natural scrolling and interaction timing patterns  
 - **Smart Delays**: Adds random delays between operations to mimic human timing
 - **Resource Management**: Blocks images, stylesheets, fonts, and media to improve performance and stability
-- **Automation Hiding**: Removes webdriver property
+- **Automation Hiding**: Advanced techniques to hide automation indicators
 
 ## 🔒 Security & Privacy
 
-- Uses official Playwright browser automation with advanced anti-detection features
+- Uses Puppeteer with stealth plugin for advanced browser automation and anti-detection
 - Downloads only 1MB samples from detected download links to verify accessibility
 - Downloaded data is immediately discarded, nothing is stored permanently
 - All communication uses standard HTTPS with realistic browser headers

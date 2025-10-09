@@ -1,5 +1,9 @@
-const { chromium } = require('playwright');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const HeadersManager = require('./headers');
+
+// Use stealth plugin
+puppeteer.use(StealthPlugin());
 
 class GoFileKeepAlive {
   constructor(options = {}) {
@@ -106,7 +110,7 @@ class GoFileKeepAlive {
     const viewport = this.headersManager.getRandomViewport();
     
     const launchOptions = {
-      headless: this.options.headless,
+      headless: this.options.headless ? 'new' : false,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -122,53 +126,45 @@ class GoFileKeepAlive {
     };
 
     // Use system chromium if available (for Docker/Alpine)
-    if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
-      launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+    if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || process.env.PUPPETEER_EXECUTABLE_PATH) {
+      launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
     }
     
-    const browser = await chromium.launch(launchOptions);
+    const browser = await puppeteer.launch(launchOptions);
+    const page = await browser.newPage();
 
-    const context = await browser.newContext({
-      userAgent: browserHeaders['User-Agent'],
-      viewport: viewport,
-      ignoreHTTPSErrors: true
-    });
-
-    // Add minimal stealth script to hide automation
-    await context.addInitScript(() => {
-      // Hide webdriver property
-      Object.defineProperty(navigator, 'webdriver', {
-        get: () => undefined,
-      });
-    });
+    // Set user agent and viewport
+    await page.setUserAgent(browserHeaders['User-Agent']);
+    await page.setViewport(viewport);
 
     // Block unnecessary resources for performance
-    await context.route('**/*', route => {
-      const resourceType = route.request().resourceType();
+    await page.setRequestInterception(true);
+    page.on('request', (request) => {
+      const resourceType = request.resourceType();
       
       // Block media, stylesheets, and images to reduce memory usage
       if (['media', 'stylesheet', 'image', 'font'].includes(resourceType)) {
-        return route.abort();
+        request.abort();
+      } else {
+        request.continue();
       }
-      
-      route.continue();
     });
 
     this.log(`Browser configured with User-Agent: ${browserHeaders['User-Agent']}`, 'debug');
     this.log(`Viewport: ${viewport.width}x${viewport.height}`, 'debug');
 
-    return { browser, context };
+    return { browser, page };
   }
 
   /**
-   * Check if browser and context are still alive
+   * Check if browser and page are still alive
    */
-  async isBrowserAlive(browser, context) {
+  async isBrowserAlive(browser, page) {
     try {
       if (!browser || !browser.isConnected()) {
         return false;
       }
-      if (!context || context.pages === undefined) {
+      if (!page || page.isClosed()) {
         return false;
       }
       return true;
@@ -217,16 +213,16 @@ class GoFileKeepAlive {
     let clickedButtons = 0;
     
     try {
-      // Use getByRole or text locator for better nested text handling
-      const buttons = await page.locator('button').all();
+      // Find all button elements
+      const buttons = await page.$$('button');
       this.log(`Found ${buttons.length} button elements to check`, 'debug');
       
       for (const button of buttons) {
         try {
-          const isVisible = await button.isVisible();
+          const isVisible = await button.isIntersectingViewport();
           if (!isVisible) continue;
           
-          const text = await button.innerText();
+          const text = await page.evaluate(el => el.innerText, button);
           const textLower = text.toLowerCase();
           
           // Check if button contains "download" text (case insensitive)
@@ -340,28 +336,10 @@ class GoFileKeepAlive {
     }
   }
 
-  async processUrl(context, url) {
-    let page = null;
-    
+  async processUrl(page, url) {
     try {
-      // Retry the entire page creation and navigation process
+      // Retry the entire page navigation process
       const downloadLinks = await this.retryOperation(async () => {
-        // Close previous page if it exists and is not closed
-        if (page && !page.isClosed()) {
-          try {
-            await page.close();
-          } catch (e) {
-            this.log(`Error closing previous page: ${e.message}`, 'debug');
-          }
-        }
-        
-        // Verify context is still valid before creating new page
-        if (!context || !context.pages) {
-          throw new Error('Browser context is no longer valid');
-        }
-        
-        // Create a fresh page for each attempt
-        page = await context.newPage();
         return await this.findDownloadLinks(page, url);
       });
 
@@ -393,14 +371,6 @@ class GoFileKeepAlive {
     } catch (error) {
       this.log(`Error processing URL ${url}: ${error.message}`, 'error');
       throw error;
-    } finally {
-      if (page && !page.isClosed()) {
-        try {
-          await page.close();
-        } catch (e) {
-          this.log(`Error closing page: ${e.message}`, 'debug');
-        }
-      }
     }
   }
 
@@ -408,11 +378,11 @@ class GoFileKeepAlive {
     const startTime = Date.now();
     this.log('Starting GoFile Keep Alive process (downloading 1MB samples with stealth features)...');
 
-    let browser, context;
+    let browser, page;
     
     try {
       const urls = this.parseUrls();
-      ({ browser, context } = await this.setupBrowser());
+      ({ browser, page } = await this.setupBrowser());
 
       let totalSuccessfulDownloads = 0;
 
@@ -432,9 +402,9 @@ class GoFileKeepAlive {
           }
 
           // Check if browser is still alive before processing
-          const browserAlive = await this.isBrowserAlive(browser, context);
+          const browserAlive = await this.isBrowserAlive(browser, page);
           if (!browserAlive) {
-            this.log('Browser/context is no longer alive, recreating...', 'warn');
+            this.log('Browser/page is no longer alive, recreating...', 'warn');
             
             // Close old browser if it exists
             try {
@@ -445,11 +415,11 @@ class GoFileKeepAlive {
               this.log(`Error closing old browser: ${e.message}`, 'debug');
             }
             
-            // Create new browser and context
-            ({ browser, context } = await this.setupBrowser());
+            // Create new browser and page
+            ({ browser, page } = await this.setupBrowser());
           }
 
-          const successfulDownloads = await this.processUrl(context, url);
+          const successfulDownloads = await this.processUrl(page, url);
           totalSuccessfulDownloads += successfulDownloads;
         } catch (error) {
           this.log(`Failed to process URL ${url}: ${error.message}`, 'error');
@@ -467,7 +437,7 @@ class GoFileKeepAlive {
             }
             // Set to null so it gets recreated on next iteration
             browser = null;
-            context = null;
+            page = null;
           }
         }
       }

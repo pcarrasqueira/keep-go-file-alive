@@ -46,8 +46,8 @@ jobs:
           HEADLESS: 'true'
           PAGE_TIMEOUT: '60000'
           WAIT_TIME: '5000'
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: '/usr/bin/chromium-browser'
+          PUPPETEER_SKIP_DOWNLOAD: '1'
+          PUPPETEER_EXECUTABLE_PATH: '/usr/bin/chromium-browser'
 
       - name: Upload logs on failure
         if: failure()
