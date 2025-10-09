@@ -53,7 +53,18 @@ class GoFileKeepAlive {
         this.log(`Attempt ${attempt}/${maxRetries} failed: ${error.message}`, 'warn');
         
         if (attempt < maxRetries) {
-          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Exponential backoff, max 10s
+          // Check if error is rate limiting (429) - use longer delays
+          const isRateLimited = error.message && error.message.includes('429');
+          let delay;
+          
+          if (isRateLimited) {
+            // For rate limiting, use much longer delays: 10s, 30s, 60s
+            delay = Math.min(10000 * Math.pow(3, attempt - 1), 60000);
+          } else {
+            // For other errors, use standard exponential backoff
+            delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+          }
+          
           await this.sleep(delay);
         }
       }
@@ -149,6 +160,23 @@ class GoFileKeepAlive {
     return { browser, context };
   }
 
+  /**
+   * Check if browser and context are still alive
+   */
+  async isBrowserAlive(browser, context) {
+    try {
+      if (!browser || !browser.isConnected()) {
+        return false;
+      }
+      if (!context || context.pages === undefined) {
+        return false;
+      }
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   async findDownloadLinks(page, url) {
     const downloadLinks = new Set();
     
@@ -184,56 +212,41 @@ class GoFileKeepAlive {
     // Simulate human-like behavior
     await this.simulateHumanBehavior(page);
 
-    // Try to find and click download buttons
-    const downloadSelectors = [
-      'a[href*="/download/"]',
-      'button:has-text("download")',
-      'button:has-text("baixar")',
-      'button:has-text("télécharger")',
-      'button:has-text("descargar")',
-      'button:has-text("scarica")',
-      '[data-cy="download"]',
-      '.download-button',
-      '#download',
-      '.btn-download',
-      '[class*="download"]',
-      '[id*="download"]',
-      'a[class*="btn"]',
-      'button[class*="btn"]'
-    ];
-
+    // Try to find and click download buttons (case insensitive, including nested text in spans)
     this.log(`Searching for download buttons...`, 'debug');
     let clickedButtons = 0;
     
-    for (const selector of downloadSelectors) {
-      try {
-        const elements = await page.$$(selector);
-        this.log(`Found ${elements.length} elements for selector: ${selector}`, 'debug');
-        
-        for (const element of elements) {
-          try {
-            const isVisible = await element.isVisible();
-            if (!isVisible) continue;
-            
-            const text = (await element.innerText()).toLowerCase();
+    try {
+      // Use getByRole or text locator for better nested text handling
+      const buttons = await page.locator('button').all();
+      this.log(`Found ${buttons.length} button elements to check`, 'debug');
+      
+      for (const button of buttons) {
+        try {
+          const isVisible = await button.isVisible();
+          if (!isVisible) continue;
+          
+          const text = await button.innerText();
+          const textLower = text.toLowerCase();
+          
+          // Check if button contains "download" text (case insensitive)
+          if (textLower.includes('download')) {
             this.log(`Checking element with text: "${text}"`, 'debug');
             
-            if (/download|baixar|télécharger|descargar|scarica|get|obter/.test(text)) {
-              // Small delay before clicking
-              await this.sleep(Math.random() * 300 + 200); // 200-500ms delay
-              
-              await element.click({ timeout: 5000 });
-              clickedButtons++;
-              await this.sleep(this.options.waitTime);
-              this.log(`Clicked download button with text: ${text}`, 'debug');
-            }
-          } catch (e) {
-            this.log(`Error clicking element: ${e.message}`, 'debug');
+            // Small delay before clicking
+            await this.sleep(Math.random() * 300 + 200); // 200-500ms delay
+            
+            await button.click({ timeout: 5000 });
+            clickedButtons++;
+            await this.sleep(this.options.waitTime);
+            this.log(`Clicked download button with text: ${text}`, 'debug');
           }
+        } catch (e) {
+          this.log(`Error clicking element: ${e.message}`, 'debug');
         }
-      } catch (e) {
-        this.log(`Error finding elements with selector ${selector}: ${e.message}`, 'debug');
       }
+    } catch (e) {
+      this.log(`Error finding button elements: ${e.message}`, 'debug');
     }
     
     this.log(`Clicked ${clickedButtons} download buttons`, 'debug');
@@ -342,6 +355,11 @@ class GoFileKeepAlive {
           }
         }
         
+        // Verify context is still valid before creating new page
+        if (!context || !context.pages) {
+          throw new Error('Browser context is no longer valid');
+        }
+        
         // Create a fresh page for each attempt
         page = await context.newPage();
         return await this.findDownloadLinks(page, url);
@@ -402,10 +420,33 @@ class GoFileKeepAlive {
         const url = urls[i];
         try {
           // Add random delay between URLs to appear more human-like
-          if (i > 0) {
+          // Also add initial delay for first URL to allow browser warmup and avoid immediate rate limiting
+          if (i === 0) {
+            const initialDelay = Math.random() * 3000 + 2000; // 2-5 second initial delay
+            this.log(`Adding ${Math.round(initialDelay)}ms initial delay before first request`, 'debug');
+            await this.sleep(initialDelay);
+          } else {
             const delay = Math.random() * 5000 + 2000; // 2-7 second delay between URLs
             this.log(`Adding ${Math.round(delay)}ms delay before processing next URL`, 'debug');
             await this.sleep(delay);
+          }
+
+          // Check if browser is still alive before processing
+          const browserAlive = await this.isBrowserAlive(browser, context);
+          if (!browserAlive) {
+            this.log('Browser/context is no longer alive, recreating...', 'warn');
+            
+            // Close old browser if it exists
+            try {
+              if (browser) {
+                await browser.close();
+              }
+            } catch (e) {
+              this.log(`Error closing old browser: ${e.message}`, 'debug');
+            }
+            
+            // Create new browser and context
+            ({ browser, context } = await this.setupBrowser());
           }
 
           const successfulDownloads = await this.processUrl(context, url);
@@ -413,6 +454,21 @@ class GoFileKeepAlive {
         } catch (error) {
           this.log(`Failed to process URL ${url}: ${error.message}`, 'error');
           this.stats.errors.push({ url, error: error.message });
+          
+          // If error indicates browser issues, try to recreate browser for next URL
+          if (error.message && (error.message.includes('closed') || error.message.includes('Target'))) {
+            this.log('Browser issue detected, will recreate for next URL', 'warn');
+            try {
+              if (browser) {
+                await browser.close();
+              }
+            } catch (e) {
+              this.log(`Error closing browser after error: ${e.message}`, 'debug');
+            }
+            // Set to null so it gets recreated on next iteration
+            browser = null;
+            context = null;
+          }
         }
       }
 
@@ -448,8 +504,12 @@ class GoFileKeepAlive {
       throw error;
     } finally {
       if (browser) {
-        await browser.close();
-        this.log('Browser closed');
+        try {
+          await browser.close();
+          this.log('Browser closed');
+        } catch (e) {
+          this.log(`Error closing browser in finally: ${e.message}`, 'debug');
+        }
       }
     }
   }
