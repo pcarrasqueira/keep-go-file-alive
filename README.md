@@ -99,7 +99,7 @@ Failed pings: 0
 The GitHub Action has been optimized for faster execution:
 
 - **Reduced Runtime**: Uses Alpine Linux container with pre-installed Chromium (~60% faster)
-- **No Browser Downloads**: System Chromium eliminates Playwright installation time
+- **No Browser Downloads**: System Chromium eliminates browser installation time
 - **Streamlined Workflow**: Tests moved to separate workflow, production runs only essential steps
 - **Smaller Timeout**: Reduced overall workflow timeout from 30 to 15 minutes
 
