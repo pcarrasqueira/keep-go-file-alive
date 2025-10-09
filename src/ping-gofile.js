@@ -212,37 +212,41 @@ class GoFileKeepAlive {
     // Simulate human-like behavior
     await this.simulateHumanBehavior(page);
 
-    // Try to find and click download buttons (case insensitive)
-    const selector = 'button:has-text("download")';
-
+    // Try to find and click download buttons (case insensitive, including nested text in spans)
     this.log(`Searching for download buttons...`, 'debug');
     let clickedButtons = 0;
     
     try {
-      const elements = await page.$$(selector);
-      this.log(`Found ${elements.length} elements for selector: ${selector}`, 'debug');
+      // Use getByRole or text locator for better nested text handling
+      const buttons = await page.locator('button').all();
+      this.log(`Found ${buttons.length} button elements to check`, 'debug');
       
-      for (const element of elements) {
+      for (const button of buttons) {
         try {
-          const isVisible = await element.isVisible();
+          const isVisible = await button.isVisible();
           if (!isVisible) continue;
           
-          const text = await element.innerText();
-          this.log(`Checking element with text: "${text}"`, 'debug');
+          const text = await button.innerText();
+          const textLower = text.toLowerCase();
           
-          // Small delay before clicking
-          await this.sleep(Math.random() * 300 + 200); // 200-500ms delay
-          
-          await element.click({ timeout: 5000 });
-          clickedButtons++;
-          await this.sleep(this.options.waitTime);
-          this.log(`Clicked download button with text: ${text}`, 'debug');
+          // Check if button contains "download" text (case insensitive)
+          if (textLower.includes('download')) {
+            this.log(`Checking element with text: "${text}"`, 'debug');
+            
+            // Small delay before clicking
+            await this.sleep(Math.random() * 300 + 200); // 200-500ms delay
+            
+            await button.click({ timeout: 5000 });
+            clickedButtons++;
+            await this.sleep(this.options.waitTime);
+            this.log(`Clicked download button with text: ${text}`, 'debug');
+          }
         } catch (e) {
           this.log(`Error clicking element: ${e.message}`, 'debug');
         }
       }
     } catch (e) {
-      this.log(`Error finding elements with selector ${selector}: ${e.message}`, 'debug');
+      this.log(`Error finding button elements: ${e.message}`, 'debug');
     }
     
     this.log(`Clicked ${clickedButtons} download buttons`, 'debug');
