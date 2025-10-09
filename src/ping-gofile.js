@@ -435,7 +435,12 @@ class GoFileKeepAlive {
         const url = urls[i];
         try {
           // Add random delay between URLs to appear more human-like
-          if (i > 0) {
+          // Also add initial delay for first URL to allow browser warmup and avoid immediate rate limiting
+          if (i === 0) {
+            const initialDelay = Math.random() * 3000 + 2000; // 2-5 second initial delay
+            this.log(`Adding ${Math.round(initialDelay)}ms initial delay before first request`, 'debug');
+            await this.sleep(initialDelay);
+          } else {
             const delay = Math.random() * 5000 + 2000; // 2-7 second delay between URLs
             this.log(`Adding ${Math.round(delay)}ms delay before processing next URL`, 'debug');
             await this.sleep(delay);
