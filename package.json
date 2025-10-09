@@ -9,7 +9,9 @@
     "example": "node example.js"
   },
   "dependencies": {
-    "playwright": "^1.48.0"
+    "puppeteer": "^24.23.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -18,7 +20,7 @@
     "gofile",
     "download",
     "keep-alive",
-    "playwright",
+    "puppeteer",
     "github-actions"
   ],
   "author": "",
