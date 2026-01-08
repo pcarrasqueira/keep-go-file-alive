@@ -180,7 +180,7 @@ npm run validate
    - Extracts all Buzzheavier-related links from page content
    - Simulates simple scrolling for realistic behavior
    - Clicks visible download buttons to reveal direct download links
-5. **Sample Download**: Downloads the first 1MB of each detected download link using rotating headers to keep them active
+5. **Sample Download**: Downloads the first 4MB of each detected download link using rotating headers to keep them active
 6. **Reporting**: Provides detailed statistics and logs
 
 ## 🔒 Anti-Detection Features
@@ -197,7 +197,7 @@ The tool includes advanced stealth capabilities to avoid automation detection:
 ## 🔒 Security & Privacy
 
 - Uses official Playwright browser automation with advanced anti-detection features
-- Downloads only 1MB samples from detected download links to verify accessibility
+- Downloads only 4MB samples from detected download links to verify accessibility
 - Downloaded data is immediately discarded, nothing is stored permanently
 - All communication uses standard HTTPS with realistic browser headers
 - Mimics human behavior patterns to avoid triggering security systems

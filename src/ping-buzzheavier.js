@@ -289,13 +289,13 @@ class BuzzheavierKeepAlive {
 
   async downloadSampleFromLink(url) {
     try {
-      this.log(`Downloading 1MB sample from: ${url}`, 'debug');
+      this.log(`Downloading 4MB sample from: ${url}`, 'debug');
       
       // Get random headers for the download request
       const downloadHeaders = this.headersManager.getRandomDownloadHeaders();
       
       // Add Range header for partial download
-      downloadHeaders['Range'] = 'bytes=0-1048575'; // Request first 1MB (1,048,576 bytes - 1)
+      downloadHeaders['Range'] = 'bytes=0-4194303'; // Request first 4MB (4,194,304 bytes - 1)
       
       const response = await fetch(url, {
         method: 'GET',
@@ -307,7 +307,7 @@ class BuzzheavierKeepAlive {
         // Read the response body to actually download the data
         const reader = response.body?.getReader();
         let downloadedBytes = 0;
-        const maxBytes = 1048576; // 1MB
+        const maxBytes = 4194304; // 4MB
         
         if (reader) {
           try {
@@ -396,7 +396,7 @@ class BuzzheavierKeepAlive {
 
   async run() {
     const startTime = Date.now();
-    this.log('Starting Buzzheavier Keep Alive process (downloading 1MB samples with stealth features)...');
+    this.log('Starting Buzzheavier Keep Alive process (downloading 4MB samples with stealth features)...');
 
     let browser, context;
     
