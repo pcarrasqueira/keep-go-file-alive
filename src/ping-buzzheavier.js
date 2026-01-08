@@ -363,7 +363,7 @@ class BuzzheavierKeepAlive {
       this.log(`Found ${downloadLinks.length} download links for ${url}`);
       this.stats.totalLinks += downloadLinks.length;
 
-      // Download 1MB samples from all download links with retry logic
+      // Download 4MB samples from all download links with retry logic
       let successCount = 0;
       for (const downloadLink of downloadLinks) {
         const success = await this.retryOperation(async () => {
