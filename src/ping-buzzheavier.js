@@ -252,9 +252,17 @@ class BuzzheavierKeepAlive {
     // Also check for links in the page content that match Buzzheavier download patterns
     try {
       const allLinks = await page.$$eval('a[href]', 
-        elements => elements.map(el => el.href).filter(href => 
-          href.includes('buzzheavier.com') || href.includes('/download/')
-        )
+        elements => elements.map(el => el.href).filter(href => {
+          try {
+            const urlObj = new URL(href);
+            // Check if hostname is buzzheavier.com or a subdomain of it
+            return urlObj.hostname === 'buzzheavier.com' || 
+                   urlObj.hostname.endsWith('.buzzheavier.com') || 
+                   href.includes('/download/');
+          } catch (e) {
+            return false;
+          }
+        })
       );
       this.log(`Found ${allLinks.length} Buzzheavier-related links in page content`, 'debug');
       allLinks.forEach(link => downloadLinks.add(link));
