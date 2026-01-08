@@ -26,7 +26,7 @@
   },
   "patterns": {
     "downloadUrl": "/\\/download\\//",
-    "gofileServer": "/srv-store\\d+\\.gofile\\.io/",
+    "buzzheavierServer": "/w\\d+\\.buzzheavier\\.com/",
     "downloadText": "/download|baixar|télécharger|descargar|scarica/i"
   },
   "browserArgs": [

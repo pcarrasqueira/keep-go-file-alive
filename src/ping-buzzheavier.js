@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 const HeadersManager = require('./headers');
 
-class GoFileKeepAlive {
+class BuzzheavierKeepAlive {
   constructor(options = {}) {
     this.options = {
       maxRetries: parseInt(process.env.MAX_RETRIES) || 3,
@@ -63,7 +63,7 @@ class GoFileKeepAlive {
   }
 
   parseUrls() {
-    const urlsEnv = process.env.GOFILE_URLS || '';
+    const urlsEnv = process.env.BUZZHEAVIER_URLS || '';
     const urls = urlsEnv.split(/\r?\n/)
       .map(s => s.trim())
       .filter(Boolean)
@@ -78,7 +78,7 @@ class GoFileKeepAlive {
       });
 
     if (urls.length === 0) {
-      throw new Error('No valid URLs found in GOFILE_URLS environment variable');
+      throw new Error('No valid URLs found in BUZZHEAVIER_URLS environment variable');
     }
 
     this.stats.totalUrls = urls.length;
@@ -158,7 +158,7 @@ class GoFileKeepAlive {
         const responseUrl = response.url();
         const hostname = new URL(responseUrl).hostname;
         
-        if (/\/download\//.test(responseUrl) || /srv-store\d+\.gofile\.io/.test(hostname)) {
+        if (/\/download\//.test(responseUrl) || /buzzheavier\.com/.test(hostname) || /w\d+\.buzzheavier\.com/.test(hostname)) {
           downloadLinks.add(responseUrl);
           this.log(`Detected download link: ${responseUrl}`, 'debug');
         }
@@ -177,7 +177,7 @@ class GoFileKeepAlive {
       timeout: this.options.timeout 
     });
     
-    // Wait longer for dynamic content to load on GoFile pages
+    // Wait longer for dynamic content to load on Buzzheavier pages
     this.log(`Waiting for dynamic content to load...`, 'debug');
     await this.sleep(5000); // Increased from 2s to 5s for better reliability
 
@@ -249,17 +249,17 @@ class GoFileKeepAlive {
       this.log(`Error extracting page links: ${e.message}`, 'debug');
     }
     
-    // Also check for links in the page content that match GoFile download patterns
+    // Also check for links in the page content that match Buzzheavier download patterns
     try {
       const allLinks = await page.$$eval('a[href]', 
         elements => elements.map(el => el.href).filter(href => 
-          href.includes('srv-store') || href.includes('/download/') || href.includes('gofile.io/download')
+          href.includes('buzzheavier.com') || href.includes('/download/')
         )
       );
-      this.log(`Found ${allLinks.length} GoFile-related links in page content`, 'debug');
+      this.log(`Found ${allLinks.length} Buzzheavier-related links in page content`, 'debug');
       allLinks.forEach(link => downloadLinks.add(link));
     } catch (e) {
-      this.log(`Error extracting GoFile links: ${e.message}`, 'debug');
+      this.log(`Error extracting Buzzheavier links: ${e.message}`, 'debug');
     }
 
     return Array.from(downloadLinks);
@@ -388,7 +388,7 @@ class GoFileKeepAlive {
 
   async run() {
     const startTime = Date.now();
-    this.log('Starting GoFile Keep Alive process (downloading 1MB samples with stealth features)...');
+    this.log('Starting Buzzheavier Keep Alive process (downloading 1MB samples with stealth features)...');
 
     let browser, context;
     
@@ -440,7 +440,7 @@ class GoFileKeepAlive {
         throw new Error('No successful downloads were made despite finding download links');
       }
 
-      this.log('✓ GoFile Keep Alive process completed successfully with enhanced stealth features');
+      this.log('✓ Buzzheavier Keep Alive process completed successfully with enhanced stealth features');
       return this.stats;
       
     } catch (error) {
@@ -457,7 +457,7 @@ class GoFileKeepAlive {
 
 // Main execution
 if (require.main === module) {
-  const keepAlive = new GoFileKeepAlive();
+  const keepAlive = new BuzzheavierKeepAlive();
   
   keepAlive.run()
     .then(stats => {
@@ -470,4 +470,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = GoFileKeepAlive;
+module.exports = BuzzheavierKeepAlive;
