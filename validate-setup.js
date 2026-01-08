@@ -48,7 +48,7 @@ class SetupValidator {
   }
 
   async validate() {
-    console.log('🔍 Validating GoFile Keep Alive Setup');
+    console.log('🔍 Validating Buzzheavier Keep Alive Setup');
     console.log('=====================================\n');
 
     // Check Node.js version
@@ -69,8 +69,8 @@ class SetupValidator {
 
     // Check main script exists
     this.check('Main script exists', () => {
-      if (!fs.existsSync('src/ping-gofile.js')) {
-        return 'src/ping-gofile.js not found';
+      if (!fs.existsSync('src/ping-buzzheavier.js')) {
+        return 'src/ping-buzzheavier.js not found';
       }
     });
 
@@ -99,13 +99,13 @@ class SetupValidator {
       }
     });
 
-    // Check GOFILE_URLS environment variable
-    const gofileUrls = process.env.GOFILE_URLS;
-    if (gofileUrls) {
-      this.check('GOFILE_URLS environment variable format', () => {
-        const urls = gofileUrls.split(/\r?\n/).filter(Boolean);
+    // Check BUZZHEAVIER_URLS environment variable
+    const buzzheavierUrls = process.env.BUZZHEAVIER_URLS;
+    if (buzzheavierUrls) {
+      this.check('BUZZHEAVIER_URLS environment variable format', () => {
+        const urls = buzzheavierUrls.split(/\r?\n/).filter(Boolean);
         if (urls.length === 0) {
-          return 'No URLs found in GOFILE_URLS';
+          return 'No URLs found in BUZZHEAVIER_URLS';
         }
         
         for (const url of urls) {
@@ -116,10 +116,10 @@ class SetupValidator {
           }
         }
         
-        this.log(`Found ${urls.length} URL(s) in GOFILE_URLS`, 'info');
+        this.log(`Found ${urls.length} URL(s) in BUZZHEAVIER_URLS`, 'info');
       });
     } else {
-      this.warn('GOFILE_URLS environment variable not set (this is normal for setup validation)');
+      this.warn('BUZZHEAVIER_URLS environment variable not set (this is normal for setup validation)');
     }
 
     // Check if running in GitHub Actions
@@ -127,8 +127,8 @@ class SetupValidator {
       this.log('Running in GitHub Actions environment', 'info');
       
       this.check('GitHub Actions variables available', () => {
-        if (!process.env.GOFILE_URLS) {
-          return 'GOFILE_URLS variable not available. Check repository variables.';
+        if (!process.env.BUZZHEAVIER_URLS) {
+          return 'BUZZHEAVIER_URLS variable not available. Check repository variables.';
         }
       });
     }
@@ -136,7 +136,7 @@ class SetupValidator {
     // Try to load the main module
     this.check('Main module can be loaded', () => {
       try {
-        require('./src/ping-gofile.js');
+        require('./src/ping-buzzheavier.js');
       } catch (error) {
         return `Module loading failed: ${error.message}`;
       }
@@ -160,9 +160,9 @@ class SetupValidator {
       console.log('\n🔧 Please fix the errors above before using the tool.');
     }
 
-    if (!process.env.GOFILE_URLS && !process.env.GITHUB_ACTIONS) {
+    if (!process.env.BUZZHEAVIER_URLS && !process.env.GITHUB_ACTIONS) {
       console.log('\n💡 Next steps:');
-      console.log('1. Set GOFILE_URLS environment variable with your URLs');
+      console.log('1. Set BUZZHEAVIER_URLS environment variable with your URLs');
       console.log('2. Run: npm start');
       console.log('3. Or set up GitHub repository variables for automated runs');
     }

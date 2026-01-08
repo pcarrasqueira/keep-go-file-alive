@@ -123,8 +123,8 @@ class HeadersManager {
       'Accept-Language': this.getRandomElement(this.acceptLanguages),
       'Accept-Encoding': this.getRandomElement(this.acceptEncodings),
       'Connection': 'keep-alive',
-      'Referer': 'https://gofile.io/',
-      'Origin': 'https://gofile.io',
+      'Referer': 'https://buzzheavier.com/',
+      'Origin': 'https://buzzheavier.com',
       'Cache-Control': 'no-cache',
       'Pragma': 'no-cache',
     };

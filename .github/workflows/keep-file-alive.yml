@@ -1,4 +1,4 @@
-name: Keep Gofile Alive
+name: Keep Buzzheavier Alive
 
 on:
   schedule:
@@ -37,10 +37,10 @@ jobs:
       - name: Install Node.js dependencies
         run: npm ci --only=production --ignore-scripts
 
-      - name: Run GoFile Keep Alive
-        run: node src/ping-gofile.js
+      - name: Run Buzzheavier Keep Alive
+        run: node src/ping-buzzheavier.js
         env:
-          GOFILE_URLS: ${{ vars.GOFILE_URLS }}
+          BUZZHEAVIER_URLS: ${{ vars.BUZZHEAVIER_URLS }}
           VERBOSE: ${{ github.event.inputs.verbose || 'false' }}
           MAX_RETRIES: ${{ github.event.inputs.max_retries || '3' }}
           HEADLESS: 'true'

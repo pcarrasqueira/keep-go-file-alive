@@ -1,10 +1,10 @@
 {
-  "name": "keep-gofile-alive",
+  "name": "keep-buzzheavier-alive",
   "version": "1.0.0",
-  "description": "A tool to keep GoFile download links alive by downloading sample data from them",
-  "main": "src/ping-gofile.js",
+  "description": "A tool to keep Buzzheavier download links alive by downloading sample data from them",
+  "main": "src/ping-buzzheavier.js",
   "scripts": {
-    "start": "node src/ping-gofile.js",
+    "start": "node src/ping-buzzheavier.js",
     "validate": "node validate-setup.js",
     "example": "node example.js"
   },
@@ -15,7 +15,7 @@
     "node": ">=18.0.0"
   },
   "keywords": [
-    "gofile",
+    "buzzheavier",
     "download",
     "keep-alive",
     "playwright",

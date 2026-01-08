@@ -1,26 +1,26 @@
 #!/usr/bin/env node
 
 /**
- * Example usage of GoFile Keep Alive
+ * Example usage of Buzzheavier Keep Alive
  * This script demonstrates how to use the tool programmatically
  */
 
-const GoFileKeepAlive = require('./src/ping-gofile');
+const BuzzheavierKeepAlive = require('./src/ping-buzzheavier');
 
 async function example() {
-  console.log('🔄 GoFile Keep Alive Example');
+  console.log('🔄 Buzzheavier Keep Alive Example');
   console.log('================================\n');
 
   // Example 1: Basic usage with default options
   console.log('📝 Example 1: Basic usage');
   
-  const keepAlive1 = new GoFileKeepAlive({
+  const keepAlive1 = new BuzzheavierKeepAlive({
     verbose: true,
     maxRetries: 2
   });
 
   // Mock environment variable for demo
-  process.env.GOFILE_URLS = 'https://example.com/demo1\nhttps://example.com/demo2';
+  process.env.BUZZHEAVIER_URLS = 'https://example.com/demo1\nhttps://example.com/demo2';
   
   try {
     console.log('Parsing URLs...');
@@ -43,7 +43,7 @@ async function example() {
     userAgent: 'Custom Bot/1.0'
   };
 
-  const keepAlive2 = new GoFileKeepAlive(customOptions);
+  const keepAlive2 = new BuzzheavierKeepAlive(customOptions);
   
   console.log('Custom options:');
   console.log(`- Max retries: ${keepAlive2.options.maxRetries}`);
@@ -57,7 +57,7 @@ async function example() {
   console.log('📝 Example 3: Environment variables');
   console.log('Set these environment variables to configure the tool:');
   console.log('');
-  console.log('GOFILE_URLS="https://gofile.io/d/abc123"');
+  console.log('BUZZHEAVIER_URLS="https://buzzheavier.com/abc123"');
   console.log('VERBOSE=true');
   console.log('MAX_RETRIES=5');
   console.log('PAGE_TIMEOUT=30000');
