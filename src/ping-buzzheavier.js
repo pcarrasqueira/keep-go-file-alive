@@ -149,24 +149,56 @@ class BuzzheavierKeepAlive {
     return { browser, context };
   }
 
-  async findDownloadLinks(page, url) {
-    const downloadLinks = new Set();
+  async getDirectDownloadLink(url) {
+    // Buzzheavier uses HTMX to handle downloads
+    // We need to make a HEAD request to {url}/download with specific headers
+    // The response will contain an hx-redirect header with the direct download URL
     
-    // Monitor network responses for download links
-    page.on('response', response => {
-      try {
-        const responseUrl = response.url();
-        const hostname = new URL(responseUrl).hostname;
-        
-        if (/\/download\//.test(responseUrl) || /buzzheavier\.com/.test(hostname) || /w\d+\.buzzheavier\.com/.test(hostname)) {
-          downloadLinks.add(responseUrl);
-          this.log(`Detected download link: ${responseUrl}`, 'debug');
-        }
-      } catch (e) {
-        this.log(`Error parsing response URL: ${e.message}`, 'debug');
+    try {
+      const baseUrl = url.split('#')[0].replace(/\/$/, ''); // Remove trailing slash and fragment
+      const downloadUrl = `${baseUrl}/download`;
+      
+      this.log(`Making HEAD request to: ${downloadUrl}`, 'debug');
+      
+      const downloadHeaders = this.headersManager.getRandomDownloadHeaders();
+      
+      // Add HTMX-specific headers required by Buzzheavier
+      downloadHeaders['hx-current-url'] = baseUrl;
+      downloadHeaders['hx-request'] = 'true';
+      downloadHeaders['Referer'] = baseUrl;
+      
+      const response = await fetch(downloadUrl, {
+        method: 'HEAD',
+        headers: downloadHeaders,
+        redirect: 'manual' // Don't follow redirects, we want the hx-redirect header
+      });
+      
+      // Get the hx-redirect header which contains the direct download URL
+      const hxRedirect = response.headers.get('hx-redirect');
+      
+      if (!hxRedirect) {
+        this.log(`No hx-redirect header found. Status: ${response.status}`, 'warn');
+        throw new Error('Could not extract download link. File may be deleted or is a directory.');
       }
-    });
+      
+      this.log(`Received hx-redirect header: ${hxRedirect}`, 'debug');
+      
+      // Build the full direct download URL
+      const domain = new URL(baseUrl).hostname;
+      const directLink = hxRedirect.startsWith('/dl/') 
+        ? `https://${domain}${hxRedirect}` 
+        : hxRedirect;
+      
+      this.log(`Extracted direct download link: ${directLink}`, 'debug');
+      return directLink;
+      
+    } catch (error) {
+      this.log(`Error getting direct download link: ${error.message}`, 'error');
+      throw error;
+    }
+  }
 
+  async findDownloadLinks(page, url) {
     this.log(`Navigating to ${url}`);
     
     // Small delay before navigation
@@ -177,100 +209,21 @@ class BuzzheavierKeepAlive {
       timeout: this.options.timeout 
     });
     
-    // Wait longer for dynamic content to load on Buzzheavier pages
-    this.log(`Waiting for dynamic content to load...`, 'debug');
-    await this.sleep(5000); // Increased from 2s to 5s for better reliability
+    // Wait for page to load
+    this.log(`Waiting for page to load...`, 'debug');
+    await this.sleep(2000);
 
     // Simulate human-like behavior
     await this.simulateHumanBehavior(page);
 
-    // Try to find and click download buttons
-    const downloadSelectors = [
-      'a[href*="/download/"]',
-      'button:has-text("download")',
-      'button:has-text("baixar")',
-      'button:has-text("télécharger")',
-      'button:has-text("descargar")',
-      'button:has-text("scarica")',
-      '[data-cy="download"]',
-      '.download-button',
-      '#download',
-      '.btn-download',
-      '[class*="download"]',
-      '[id*="download"]',
-      'a[class*="btn"]',
-      'button[class*="btn"]'
-    ];
-
-    this.log(`Searching for download buttons...`, 'debug');
-    let clickedButtons = 0;
-    
-    for (const selector of downloadSelectors) {
-      try {
-        const elements = await page.$$(selector);
-        this.log(`Found ${elements.length} elements for selector: ${selector}`, 'debug');
-        
-        for (const element of elements) {
-          try {
-            const isVisible = await element.isVisible();
-            if (!isVisible) continue;
-            
-            const text = (await element.innerText()).toLowerCase();
-            this.log(`Checking element with text: "${text}"`, 'debug');
-            
-            if (/download|baixar|télécharger|descargar|scarica|get|obter/.test(text)) {
-              // Small delay before clicking
-              await this.sleep(Math.random() * 300 + 200); // 200-500ms delay
-              
-              await element.click({ timeout: 5000 });
-              clickedButtons++;
-              await this.sleep(this.options.waitTime);
-              this.log(`Clicked download button with text: ${text}`, 'debug');
-            }
-          } catch (e) {
-            this.log(`Error clicking element: ${e.message}`, 'debug');
-          }
-        }
-      } catch (e) {
-        this.log(`Error finding elements with selector ${selector}: ${e.message}`, 'debug');
-      }
-    }
-    
-    this.log(`Clicked ${clickedButtons} download buttons`, 'debug');
-
-    // Extract direct download links from the page
+    // Get the single direct download link using the HTMX API
     try {
-      const pageLinks = await page.$$eval('a[href*="/download/"]', 
-        elements => elements.map(el => el.href)
-      );
-      this.log(`Found ${pageLinks.length} direct download links on page`, 'debug');
-      pageLinks.forEach(link => downloadLinks.add(link));
-    } catch (e) {
-      this.log(`Error extracting page links: ${e.message}`, 'debug');
+      const directLink = await this.getDirectDownloadLink(url);
+      return [directLink]; // Return as array with single link
+    } catch (error) {
+      this.log(`Failed to get download link for ${url}: ${error.message}`, 'warn');
+      return [];
     }
-    
-    // Also check for links in the page content that match Buzzheavier download patterns
-    try {
-      const allLinks = await page.$$eval('a[href]', 
-        elements => elements.map(el => el.href).filter(href => {
-          try {
-            const urlObj = new URL(href);
-            // Check if hostname is buzzheavier.com or a subdomain of it
-            return urlObj.hostname === 'buzzheavier.com' || 
-                   urlObj.hostname.endsWith('.buzzheavier.com') || 
-                   href.includes('/download/');
-          } catch (e) {
-            return false;
-          }
-        })
-      );
-      this.log(`Found ${allLinks.length} Buzzheavier-related links in page content`, 'debug');
-      allLinks.forEach(link => downloadLinks.add(link));
-    } catch (e) {
-      this.log(`Error extracting Buzzheavier links: ${e.message}`, 'debug');
-    }
-
-    return Array.from(downloadLinks);
   }
 
   /**
@@ -360,10 +313,10 @@ class BuzzheavierKeepAlive {
         return 0;
       }
 
-      this.log(`Found ${downloadLinks.length} download links for ${url}`);
-      this.stats.totalLinks += downloadLinks.length;
+      this.log(`Found download link for ${url}`);
+      this.stats.totalLinks += 1;
 
-      // Download 4MB samples from all download links with retry logic
+      // Download 4MB sample from the direct download link with retry logic
       let successCount = 0;
       for (const downloadLink of downloadLinks) {
         const success = await this.retryOperation(async () => {
