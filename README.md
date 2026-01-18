@@ -6,8 +6,7 @@ This repository contains a GitHub Action that periodically downloads sample data
 
 ## ✨ Features
 
-- **Automated Link Detection**: Intelligently finds download links on Buzzheavier pages
-- **Multi-language Support**: Recognizes download buttons in multiple languages (English, Portuguese, French, Spanish, Italian)
+- **Direct Link Extraction**: Uses HTMX API to reliably extract download links from Buzzheavier pages
 - **Anti-Detection Technology**: Advanced stealth features to avoid automation detection
 - **Realistic Headers**: Rotates between authentic browser headers from Chrome, Firefox, Safari, and Edge
 - **Human Behavior Simulation**: Mimics human interactions with scrolling and natural timing
@@ -80,17 +79,17 @@ The tool provides comprehensive logging and statistics:
 [2024-01-01T12:00:00.000Z] [INFO] Starting Buzzheavier Keep Alive process...
 [2024-01-01T12:00:01.000Z] [INFO] Found 3 valid URLs to process
 [2024-01-01T12:00:02.000Z] [INFO] Opening https://buzzheavier.com/abc123
-[2024-01-01T12:00:05.000Z] [INFO] Found 2 download links for https://buzzheavier.com/abc123
-[2024-01-01T12:00:06.000Z] [INFO] ✓ Ping successful: https://w1.buzzheavier.com/download/abc123/file.zip -> 200 OK
+[2024-01-01T12:00:05.000Z] [INFO] Found download link for https://buzzheavier.com/abc123
+[2024-01-01T12:00:06.000Z] [INFO] ✓ Downloaded 4194304 bytes from: https://w1.buzzheavier.com/dl/abc123 -> 206 Partial Content
 
 ============================================================
 SUMMARY
 ============================================================
 Execution time: 45.32s
 URLs processed: 3
-Download links found: 8
-Successful pings: 8
-Failed pings: 0
+Download links found: 3
+Successful downloads: 3
+Failed downloads: 0
 ✓ Buzzheavier Keep Alive process completed successfully
 ```
 
@@ -172,15 +171,12 @@ npm run validate
 1. **URL Parsing**: Parses and validates URLs from the `BUZZHEAVIER_URLS` environment variable
 2. **Stealth Browser Launch**: Starts a Chromium browser with anti-detection features and realistic configuration
 3. **Page Navigation**: Visits each Buzzheavier URL using randomized headers and lightweight navigation (domcontentloaded)
-4. **Link Detection** (Enhanced): 
-   - Waits 5 seconds for JavaScript-heavy Buzzheavier pages to fully render
-   - Monitors network traffic for download URLs
-   - Searches for download buttons using 14+ different selectors
-   - Checks element visibility before interaction
-   - Extracts all Buzzheavier-related links from page content
+4. **Direct Link Extraction**: 
+   - Makes a HEAD request to `{url}/download` with HTMX headers (`hx-current-url`, `hx-request`, `referer`)
+   - Extracts the direct download link from the `hx-redirect` response header
+   - Each Buzzheavier link has exactly one download link
    - Simulates simple scrolling for realistic behavior
-   - Clicks visible download buttons to reveal direct download links
-5. **Sample Download**: Downloads the first 1MB of each detected download link using rotating headers to keep them active
+5. **Sample Download**: Downloads the first 4MB of the detected download link using rotating headers to keep it active
 6. **Reporting**: Provides detailed statistics and logs
 
 ## 🔒 Anti-Detection Features
@@ -197,7 +193,7 @@ The tool includes advanced stealth capabilities to avoid automation detection:
 ## 🔒 Security & Privacy
 
 - Uses official Playwright browser automation with advanced anti-detection features
-- Downloads only 1MB samples from detected download links to verify accessibility
+- Downloads only 4MB samples from detected download links to verify accessibility
 - Downloaded data is immediately discarded, nothing is stored permanently
 - All communication uses standard HTTPS with realistic browser headers
 - Mimics human behavior patterns to avoid triggering security systems
